@@ -1,0 +1,10 @@
+#!/bin/sh
+cat <<'EOF'
+==================================================
+ AUTO-MANAGED SERVER — IMMUTABLE BY POLICY
+--------------------------------------------------
+ Documentation: /root/SERVER.md
+ Do NOT make manual changes.
+ Rebuild the server instead.
+==================================================
+EOF
