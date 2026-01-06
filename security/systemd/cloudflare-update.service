@@ -1,0 +1,11 @@
+[Unit]
+Description=Update Cloudflare IP ranges (firewall + nginx real IP)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/server.env
+ExecStart=/usr/local/sbin/cloudflare-update
+StandardOutput=journal
+StandardError=journal
