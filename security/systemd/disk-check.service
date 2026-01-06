@@ -1,0 +1,7 @@
+[Unit]
+Description=Disk usage alert
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/server.env
+ExecStart=/usr/local/sbin/disk-check
