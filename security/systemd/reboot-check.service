@@ -1,0 +1,7 @@
+[Unit]
+Description=Reboot-required alert
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/server.env
+ExecStart=/usr/local/sbin/reboot-check
