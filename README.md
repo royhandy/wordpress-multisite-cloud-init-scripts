@@ -117,8 +117,6 @@ Ensure the certificate files exist before provisioning.
 
 ### 3. cloud-init Configuration
 
-Replace the GitHub URL with your fork.
-
 ```
 #cloud-config
 package_update: false
