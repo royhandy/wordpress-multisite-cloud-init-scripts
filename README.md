@@ -117,14 +117,19 @@ Ensure the certificate files exist before provisioning.
 
 ### 3. cloud-init Configuration
 
-```
-runcmd:
-  - apt-get update
-  - apt-get install -y git ca-certificates
-  - git clone https://github.com/royhandy/wordpress-multisite-cloud-init-scripts.git /opt/server-template
-  - chmod 700 /opt/server-template/bootstrap.sh
-  - /opt/server-template/bootstrap.sh
+Replace the GitHub URL with your fork.
 
+```
+#cloud-config
+package_update: false
+package_upgrade: false
+
+runcmd:
+  - [ bash, -lc, "apt-get update -y && apt-get install -y git ca-certificates curl" ]
+  - [ bash, -lc, "rm -rf /opt/server-template && git clone https://github.com/royhandy/wordpress-multisite-cloud-init-scripts.git /opt/server-template" ]
+  - [ bash, -lc, "install -o root -g root -m 0644 /opt/server-template/security/systemd/server-template-firstboot.service /etc/systemd/system/server-template-firstboot.service" ]
+  - [ bash, -lc, "chmod 700 /opt/server-template/install.sh" ]
+  - [ bash, -lc, "systemctl daemon-reload && systemctl enable --now server-template-firstboot.service" ]
 ```
 
 ### 4. First Boot
