@@ -121,15 +121,49 @@ Replace the GitHub URL with your fork.
 
 ```
 #cloud-config
-package_update: false
+# Minimal cloud-init bootstrap
+# ASCII only - required for provider consoles that base64 encode user-data
+
+package_update: true
 package_upgrade: false
 
+packages:
+  - git
+  - ca-certificates
+  - curl
+  - openssl
+
 runcmd:
-  - [ bash, -lc, "apt-get update -y && apt-get install -y git ca-certificates curl" ]
-  - [ bash, -lc, "rm -rf /opt/server-template && git clone https://github.com/royhandy/wordpress-multisite-cloud-init-scripts.git /opt/server-template" ]
-  - [ bash, -lc, "install -o root -g root -m 0644 /opt/server-template/security/systemd/server-template-firstboot.service /etc/systemd/system/server-template-firstboot.service" ]
-  - [ bash, -lc, "chmod 700 /opt/server-template/install.sh" ]
-  - [ bash, -lc, "systemctl daemon-reload && systemctl enable --now server-template-firstboot.service" ]
+  - set -e
+
+  # Clone repository
+  - |
+    if [ ! -d /opt/server-template ]; then
+      git clone https://github.com/royhandy/wordpress-multisite-cloud-init-scripts.git /opt/server-template
+    fi
+
+  # Ensure scripts are executable
+  - chmod 700 /opt/server-template/bootstrap.sh
+  - chmod 700 /opt/server-template/install.sh
+
+  # Run bootstrap phase only
+  - /opt/server-template/bootstrap.sh
+
+final_message: |
+  ====================================================
+  Bootstrap complete.
+
+  cloud-init is finished and disabled.
+
+  Manual next steps:
+    1. Upload Cloudflare origin certs to:
+       /etc/ssl/cf-origin/<domain>/cert.pem
+       /etc/ssl/cf-origin/<domain>/key.pem
+    2. Edit /etc/server.env
+    3. Run:
+       cd /opt/server-template && ./install.sh
+  ====================================================
+
 ```
 
 ### 4. First Boot
