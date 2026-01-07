@@ -167,6 +167,7 @@ install_web() {
   ln -sf /etc/nginx/sites-available/catchall.conf /etc/nginx/sites-enabled/catchall.conf
 
   PHP_VERSION="$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')"
+  PHP_FPM_SERVICE="php${PHP_VERSION}-fpm"
   
   install -o root -g root -m 0644 \
     "${TEMPLATE_DIR}/php/php.ini" \
@@ -183,7 +184,7 @@ EnvironmentFile=${ENV_FILE}
 EOF
 
   systemctl daemon-reload
-  systemctl enable --now php-fpm
+  systemctl enable --now "${PHP_FPM_SERVICE}"
 }
 
 ########################################
