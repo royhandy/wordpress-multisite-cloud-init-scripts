@@ -28,6 +28,9 @@ fi
 
 # Ensure ownership
 chown -R www-data:www-data "${WEB_ROOT}"
+find "${WEB_ROOT}" -type d -exec chmod 0755 {} \;
+find "${WEB_ROOT}" -type f -exec chmod 0644 {} \;
+chmod 0640 "${WEB_ROOT}"/wp-config.php
 
 log "WordPress core ready"
 
