@@ -118,24 +118,13 @@ Ensure the certificate files exist before provisioning.
 ### 3. cloud-init Configuration
 
 ```
-#cloud-config
-
-package_update: true
-package_upgrade: false
-
 runcmd:
-  # Install minimal bootstrap dependencies
-  - apt-get install -y git ca-certificates curl
-
-  # Clone the server template repo (must be public)
-  - rm -rf /opt/server-template
+  - apt-get update
+  - apt-get install -y git ca-certificates
   - git clone https://github.com/royhandy/wordpress-multisite-cloud-init-scripts.git /opt/server-template
-
-  # Ensure bootstrap script is executable
   - chmod 700 /opt/server-template/bootstrap.sh
-
-  # Run bootstrap phase ONLY
   - /opt/server-template/bootstrap.sh
+
 ```
 
 ### 4. First Boot
