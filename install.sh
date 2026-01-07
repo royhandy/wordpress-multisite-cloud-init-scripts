@@ -8,20 +8,16 @@ TEMPLATE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STATE_DIR="/var/lib/server-template"
 PROVISIONED_MARKER="${STATE_DIR}/provisioned"
 ENV_FILE="/etc/server.env"
+CERT_DIR="/etc/ssl/cf-origin"
 
 log() { echo "[server-template] $*"; }
 die() { echo "[server-template] ERROR: $*" >&2; exit 1; }
 
 ########################################
-# Safety checks
+# Safety
 ########################################
 require_root() {
   [[ "${EUID}" -eq 0 ]] || die "Must run as root"
-}
-
-require_certificates() {
-  [[ -s /etc/ssl/cf-origin.pem ]] || die "Missing Cloudflare origin cert (/etc/ssl/cf-origin.pem)"
-  [[ -s /etc/ssl/cf-origin.key ]] || die "Missing Cloudflare origin key (/etc/ssl/cf-origin.key)"
 }
 
 ########################################
@@ -40,8 +36,8 @@ env_set_if_missing() {
   grep -qE "^${key}=" "${ENV_FILE}" 2>/dev/null || echo "${key}=${value}" >> "${ENV_FILE}"
 }
 
-cert_present() {
-  [[ -s /etc/ssl/cf-origin.pem && -s /etc/ssl/cf-origin.key ]]
+any_cert_present() {
+  compgen -G "${CERT_DIR}/*.pem" > /dev/null
 }
 
 ########################################
@@ -51,7 +47,7 @@ ensure_env_file() {
   if [[ ! -f "${ENV_FILE}" ]]; then
     umask 077
     cat > "${ENV_FILE}" <<EOF
-# Single source of truth for this server
+# Server configuration (single source of truth)
 # root:root 0600
 EOF
     chmod 600 "${ENV_FILE}"
@@ -96,8 +92,16 @@ source_env() {
 }
 
 ########################################
-# Base system hardening
+# Base system
 ########################################
+install_base_packages() {
+  apt-get update -y
+  apt-get install -y \
+    ca-certificates curl gnupg lsb-release \
+    cron logrotate unattended-upgrades \
+    nftables msmtp
+}
+
 disable_ssh() {
   log "Removing SSH completely"
   systemctl stop ssh sshd 2>/dev/null || true
@@ -107,12 +111,12 @@ disable_ssh() {
   rm -rf /etc/ssh
 }
 
-install_base_packages() {
-  apt-get update -y
-  apt-get install -y \
-    ca-certificates curl gnupg lsb-release \
-    cron logrotate unattended-upgrades \
-    nftables msmtp
+########################################
+# Certificates (directory only)
+########################################
+prepare_cert_directory() {
+  ensure_dir "${CERT_DIR}" 0755
+  chown root:root "${CERT_DIR}"
 }
 
 ########################################
@@ -154,10 +158,11 @@ SQL
 ########################################
 install_redis() {
   apt-get install -y redis-server
+
   install -o root -g root -m 0644 "${TEMPLATE_DIR}/redis/redis.conf" /etc/redis/redis.conf
   install -o root -g root -m 0750 "${TEMPLATE_DIR}/redis/redis-wrapper.sh" /usr/local/sbin/redis-wrapper
 
-  mkdir -p /etc/systemd/system/redis-server.service.d
+  ensure_dir /etc/systemd/system/redis-server.service.d
   cat > /etc/systemd/system/redis-server.service.d/override.conf <<EOF
 [Service]
 EnvironmentFile=${ENV_FILE}
@@ -184,28 +189,22 @@ install_web() {
   install -o root -g root -m 0644 "${TEMPLATE_DIR}/php/php.ini" /etc/php/*/fpm/conf.d/99-server-template.ini
   install -o root -g root -m 0644 "${TEMPLATE_DIR}/php/php-fpm-pool.conf" /etc/php/*/fpm/pool.d/zz-server-template.conf
 
-  mkdir -p /etc/systemd/system/php-fpm.service.d
+  ensure_dir /etc/systemd/system/php-fpm.service.d
   cat > /etc/systemd/system/php-fpm.service.d/env.conf <<EOF
 [Service]
-EnvironmentFile=/etc/server.env
+EnvironmentFile=${ENV_FILE}
 EOF
 
   systemctl daemon-reload
   systemctl enable php-fpm
-
-  # Start PHP immediately
   systemctl start php-fpm
 
-  if cert_present; then
-    log "TLS cert present — starting nginx"
+  if any_cert_present; then
+    log "At least one origin cert found — starting nginx"
     systemctl enable nginx
     systemctl start nginx
   else
-    log "TLS cert missing — nginx installed but NOT started"
-    log "Install Cloudflare origin cert at:"
-    log "  /etc/ssl/cf-origin.pem"
-    log "  /etc/ssl/cf-origin.key"
-    log "Then run: systemctl start nginx"
+    log "No origin certs found — nginx installed but NOT started"
     systemctl disable nginx || true
   fi
 }
@@ -238,7 +237,6 @@ install_motd() {
 ########################################
 main() {
   require_root
-  require_certificates
   ensure_dir "${STATE_DIR}" 0700
 
   ensure_env_file
@@ -246,6 +244,7 @@ main() {
 
   install_base_packages
   disable_ssh
+  prepare_cert_directory
   install_firewall
   install_cloudflare_update
   install_db
@@ -260,23 +259,23 @@ main() {
 
   log "Provisioning complete"
 
-  if ! cert_present; then
+  if ! any_cert_present; then
     cat <<EOF
 
 ========================================================================
 NGINX NOT STARTED (EXPECTED)
 ------------------------------------------------------------------------
-Cloudflare origin certificate not found.
+No Cloudflare origin certificates were found.
 
-Install certificate at:
-  /etc/ssl/cf-origin.pem
-  /etc/ssl/cf-origin.key
+Add certificates here:
+  ${CERT_DIR}/<hostname>.pem
+  ${CERT_DIR}/<hostname>.key
 
-Then start nginx:
-  systemctl start nginx
+Then run:
+  nginx -t && systemctl start nginx
 ========================================================================
 EOF
-fi
+  fi
 }
 
 main "$@"
