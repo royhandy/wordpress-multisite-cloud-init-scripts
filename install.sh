@@ -192,9 +192,21 @@ EOF
 ########################################
 install_wordpress() {
   log "Provisioning WordPress"
-  install -o root -g root -m 0750 "${TEMPLATE_DIR}/wordpress/provision-wordpress.sh" /usr/local/sbin/provision-wordpress
-  install -o root -g root -m 0644 "${TEMPLATE_DIR}/wordpress/wp-config.php" "${WEB_ROOT}/wp-config.php" || true
+
+  ensure_dir "${WEB_ROOT}" 0755
+
+  # Install provision script
+  install -o root -g root -m 0750 \
+    "${TEMPLATE_DIR}/wordpress/provision-wordpress.sh" \
+    /usr/local/sbin/provision-wordpress
+
+  # Run provisioner FIRST (downloads core, creates structure)
   /usr/local/sbin/provision-wordpress
+
+  # Now place wp-config.php
+  install -o root -g root -m 0640 \
+    "${TEMPLATE_DIR}/wordpress/wp-config.php" \
+    "${WEB_ROOT}/wp-config.php"
 }
 
 ########################################
