@@ -30,3 +30,14 @@ fi
 chown -R www-data:www-data "${WEB_ROOT}"
 
 log "WordPress core ready"
+
+# install Wordpress
+
+wp core multisite-install \
+  --url="https://prong.royhandy.com" \
+  --title="Prong Network" \
+  --admin_user="$WP_ADMIN_USER" \
+  --admin_password="$WP_ADMIN_PASSWORD" \
+  --admin_email="$WP_ADMIN_EMAIL" \
+  --subdomains \
+  --allow-root
