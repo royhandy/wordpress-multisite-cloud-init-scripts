@@ -205,11 +205,6 @@ install_wordpress() {
 
   ensure_dir "${WEB_ROOT}" 0755
 
-  chown -R www-data:www-data /var/www/wordpress
-  find /var/www/wordpress -type d -exec chmod 0755 {} \;
-  find /var/www/wordpress -type f -exec chmod 0644 {} \;
-  chmod 0640 /var/www/wordpress/wp-config.php
-
   # Load the server env variables
   mkdir -p /etc/systemd/system/${PHP_FPM_SERVICE}.service.d
   cat > /etc/systemd/system/${PHP_FPM_SERVICE}.service.d/env.conf <<'EOF'
