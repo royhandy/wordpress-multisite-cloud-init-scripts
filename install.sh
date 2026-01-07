@@ -163,6 +163,10 @@ install_web() {
   install -o root -g root -m 0644 "${TEMPLATE_DIR}/nginx/nginx.conf" /etc/nginx/nginx.conf
   install -o root -g root -m 0644 "${TEMPLATE_DIR}/nginx/catchall.conf" /etc/nginx/sites-available/catchall.conf
 
+  install -o root -g root -m 0644 \
+    "${TEMPLATE_DIR}/nginx/conf.d/cloudflare-realip.conf" \
+    /etc/nginx/conf.d/cloudflare-realip.conf
+
   rm -f /etc/nginx/sites-enabled/default
   ln -sf /etc/nginx/sites-available/catchall.conf /etc/nginx/sites-enabled/catchall.conf
 
