@@ -119,17 +119,23 @@ Ensure the certificate files exist before provisioning.
 
 ```
 #cloud-config
-package_update: false
+
+package_update: true
 package_upgrade: false
 
 runcmd:
-  - [ bash, -lc, "apt-get update -y && apt-get install -y git ca-certificates curl" ]
+  # Install minimal bootstrap dependencies
+  - apt-get install -y git ca-certificates curl
 
-  - [ bash, -lc, "rm -rf /opt/server-template" ]
-  - [ bash, -lc, "git clone https://github.com/royhandy/wordpress-multisite-cloud-init-scripts.git /opt/server-template" ]
+  # Clone the server template repo (must be public)
+  - rm -rf /opt/server-template
+  - git clone https://github.com/royhandy/wordpress-multisite-cloud-init-scripts.git /opt/server-template
 
-  - [ bash, -lc, "chmod 700 /opt/server-template/install.sh" ]
-  - [ bash, -lc, "/opt/server-template/install.sh || true" ]
+  # Ensure bootstrap script is executable
+  - chmod 700 /opt/server-template/bootstrap.sh
+
+  # Run bootstrap phase ONLY
+  - /opt/server-template/bootstrap.sh
 ```
 
 ### 4. First Boot
