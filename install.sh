@@ -167,6 +167,10 @@ install_web() {
     "${TEMPLATE_DIR}/nginx/conf.d/cloudflare-realip.conf" \
     /etc/nginx/conf.d/cloudflare-realip.conf
 
+  install -o root -g root -m 0644 \
+    "${TEMPLATE_DIR}/nginx/blocked-ips.conf" \
+    /etc/nginx/blocked-ips.conf
+
   rm -f /etc/nginx/sites-enabled/default
   ln -sf /etc/nginx/sites-available/catchall.conf /etc/nginx/sites-enabled/catchall.conf
 
