@@ -40,6 +40,10 @@ env_set_if_missing() {
   grep -qE "^${key}=" "${ENV_FILE}" 2>/dev/null || echo "${key}=${value}" >> "${ENV_FILE}"
 }
 
+cert_present() {
+  [[ -s /etc/ssl/cf-origin.pem && -s /etc/ssl/cf-origin.key ]]
+}
+
 ########################################
 # /etc/server.env
 ########################################
@@ -183,11 +187,27 @@ install_web() {
   mkdir -p /etc/systemd/system/php-fpm.service.d
   cat > /etc/systemd/system/php-fpm.service.d/env.conf <<EOF
 [Service]
-EnvironmentFile=${ENV_FILE}
+EnvironmentFile=/etc/server.env
 EOF
 
   systemctl daemon-reload
-  systemctl enable --now php-fpm nginx
+  systemctl enable php-fpm
+
+  # Start PHP immediately
+  systemctl start php-fpm
+
+  if cert_present; then
+    log "TLS cert present — starting nginx"
+    systemctl enable nginx
+    systemctl start nginx
+  else
+    log "TLS cert missing — nginx installed but NOT started"
+    log "Install Cloudflare origin cert at:"
+    log "  /etc/ssl/cf-origin.pem"
+    log "  /etc/ssl/cf-origin.key"
+    log "Then run: systemctl start nginx"
+    systemctl disable nginx || true
+  fi
 }
 
 ########################################
@@ -239,6 +259,24 @@ main() {
   chmod 0600 "${PROVISIONED_MARKER}"
 
   log "Provisioning complete"
+
+  if ! cert_present; then
+    cat <<EOF
+
+========================================================================
+NGINX NOT STARTED (EXPECTED)
+------------------------------------------------------------------------
+Cloudflare origin certificate not found.
+
+Install certificate at:
+  /etc/ssl/cf-origin.pem
+  /etc/ssl/cf-origin.key
+
+Then start nginx:
+  systemctl start nginx
+========================================================================
+EOF
+fi
 }
 
 main "$@"
