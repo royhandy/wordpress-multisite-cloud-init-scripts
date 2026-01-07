@@ -30,6 +30,10 @@ gen_secret() {
   openssl rand -base64 48 | tr -d '\n='
 }
 
+gen_short_secret() {
+  tr -dc 'A-Za-z0-9' </dev/urandom | head -c 10
+}
+
 env_set_if_missing() {
   local key="$1" value="$2"
   grep -qE "^${key}=" "${ENV_FILE}" 2>/dev/null || echo "${key}=${value}" >> "${ENV_FILE}"
@@ -86,14 +90,24 @@ EOF
   # Redis
   env_set_if_missing REDIS_PASSWORD "$(gen_secret)"
 
-  # WordPress
+  # WordPress core
   env_set_if_missing WP_PRIMARY_DOMAIN "example.invalid"
   env_set_if_missing WP_ADMIN_USER "admin"
-  env_set_if_missing WP_ADMIN_PASSWORD "$(gen_secret)"
+  env_set_if_missing WP_ADMIN_PASSWORD "$(gen_short_secret)"
   env_set_if_missing WP_ADMIN_EMAIL "root@localhost"
   env_set_if_missing WP_SUBDOMAIN_INSTALL "1"
 
-  # Mail (intentionally empty — configured later)
+  # WordPress auth keys & salts (CRITICAL — generate once)
+  env_set_if_missing WP_AUTH_KEY "$(gen_secret)"
+  env_set_if_missing WP_SECURE_AUTH_KEY "$(gen_secret)"
+  env_set_if_missing WP_LOGGED_IN_KEY "$(gen_secret)"
+  env_set_if_missing WP_NONCE_KEY "$(gen_secret)"
+  env_set_if_missing WP_AUTH_SALT "$(gen_secret)"
+  env_set_if_missing WP_SECURE_AUTH_SALT "$(gen_secret)"
+  env_set_if_missing WP_LOGGED_IN_SALT "$(gen_secret)"
+  env_set_if_missing WP_NONCE_SALT "$(gen_secret)"
+
+  # Mail (configured later)
   env_set_if_missing MAILGUN_SMTP_HOST "smtp.mailgun.org"
   env_set_if_missing MAILGUN_SMTP_PORT "587"
   env_set_if_missing MAILGUN_SMTP_LOGIN ""
@@ -114,12 +128,9 @@ prepare_cert_directories() {
 
   ensure_dir "${CERT_BASE}" 0755
 
-  # Per-domain cert layout:
+  # Per-domain layout:
   # /etc/ssl/cf-origin/example.com/cert.pem
   # /etc/ssl/cf-origin/example.com/key.pem
-  #
-  # install.sh + nginx will reference these dynamically
-  #
   chmod 0755 "${CERT_BASE}"
 }
 
