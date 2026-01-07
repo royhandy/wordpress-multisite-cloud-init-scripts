@@ -205,6 +205,21 @@ install_wordpress() {
 
   ensure_dir "${WEB_ROOT}" 0755
 
+  chown -R www-data:www-data /var/www/wordpress
+  find /var/www/wordpress -type d -exec chmod 0755 {} \;
+  find /var/www/wordpress -type f -exec chmod 0644 {} \;
+  chmod 0640 /var/www/wordpress/wp-config.php
+
+  # Load the server env variables
+  mkdir -p /etc/systemd/system/${PHP_FPM_SERVICE}.service.d
+  cat > /etc/systemd/system/${PHP_FPM_SERVICE}.service.d/env.conf <<'EOF'
+[Service]
+EnvironmentFile=/etc/server.env
+EOF
+
+  systemctl daemon-reload
+  systemctl restart ${PHP_FPM_SERVICE}
+
   # Install provision script
   install -o root -g root -m 0750 \
     "${TEMPLATE_DIR}/wordpress/provision-wordpress.sh" \
