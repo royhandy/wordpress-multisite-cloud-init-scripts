@@ -254,16 +254,17 @@ EOF
 ########################################
 # Install Filament
 ########################################
-
-log "Installing Filament"
-
-# Install filament installer script
-install -o root -g root -m 0750 \
-  "${TEMPLATE_DIR}/filament/install_filament.sh" \
+install_filament() {
+  log "Installing Filament"
+  
+  # Install filament installer script
+  install -o root -g root -m 0750 \
+    "${TEMPLATE_DIR}/filament/install_filament.sh" \
+    /usr/local/sbin/install_filament
+  
+  # Run the installer
   /usr/local/sbin/install_filament
-
-# Run the installer
-/usr/local/sbin/install_filament
+}
 
 ########################################
 # Alerts + MOTD
@@ -291,6 +292,7 @@ start_nginx() {
   systemctl enable --now nginx
 }
 
+
 ########################################
 # Main
 ########################################
@@ -312,6 +314,7 @@ main() {
   install_redis
   install_web
   install_wordpress
+  install_filament
   install_alerts
   install_motd
   start_nginx
