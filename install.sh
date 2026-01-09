@@ -250,6 +250,21 @@ EOF
   log "Wordpress installed and file permissions set"
 }
 
+
+########################################
+# Install Filament
+########################################
+
+log "Installing Filament"
+
+# Install filament installer script
+install -o root -g root -m 0750 \
+  "${TEMPLATE_DIR}/filament/install_filament.sh" \
+  /usr/local/sbin/install_filament
+
+# Run the installer
+/usr/local/sbin/install_filament
+
 ########################################
 # Alerts + MOTD
 ########################################
