@@ -26,12 +26,6 @@ if [[ ! -f wp-settings.php ]]; then
   wp core download --locale=en_US --allow-root
 fi
 
-# Ensure ownership
-chown -R www-data:www-data "${WEB_ROOT}"
-find "${WEB_ROOT}" -type d -exec chmod 0755 {} \;
-find "${WEB_ROOT}" -type f -exec chmod 0644 {} \;
-chmod 0640 "${WEB_ROOT}"/wp-config.php
-
 log "WordPress core ready"
 
 # install Wordpress
@@ -44,3 +38,11 @@ wp core multisite-install \
   --admin_email="$WP_ADMIN_EMAIL" \
   --subdomains \
   --allow-root
+
+
+
+# Ensure ownership
+chown -R www-data:www-data "${WEB_ROOT}"
+find "${WEB_ROOT}" -type d -exec chmod 0755 {} \;
+find "${WEB_ROOT}" -type f -exec chmod 0644 {} \;
+chmod 0640 "${WEB_ROOT}"/wp-config.php
