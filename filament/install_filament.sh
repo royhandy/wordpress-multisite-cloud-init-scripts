@@ -28,6 +28,54 @@ require_root() {
 }
 
 # -----------------------------
+# App system user
+# -----------------------------
+ensure_app_user() {
+  log "Ensuring application system user..."
+
+  need_cmd useradd
+  need_cmd getent
+  need_cmd openssl
+
+  # Ensure group exists
+  if ! getent group "$APP_GROUP" >/dev/null; then
+    log "Creating group: $APP_GROUP"
+    groupadd --system "$APP_GROUP"
+  fi
+
+  # Ensure user exists
+  if ! id "$APP_USER" >/dev/null 2>&1; then
+    log "Creating user: $APP_USER"
+    useradd \
+      --system \
+      --create-home \
+      --home-dir "/home/$APP_USER" \
+      --shell /bin/bash \
+      --gid "$APP_GROUP" \
+      "$APP_USER"
+  fi
+
+  # Ensure password exists in ENV_FILE
+  if ! grep -q '^APP_USER_PASSWORD=' "$ENV_FILE"; then
+    log "Generating APP_USER_PASSWORD"
+
+    local password
+    password="$(openssl rand -base64 32)"
+
+    {
+      echo
+      echo "# Server admin application user"
+      echo "APP_USER=${APP_USER}"
+      echo "APP_USER_PASSWORD=${password}"
+    } >> "$ENV_FILE"
+
+    chmod 0600 "$ENV_FILE"
+    chown root:root "$ENV_FILE"
+  fi
+}
+
+
+# -----------------------------
 # Environment
 # -----------------------------
 source_env() {
@@ -237,6 +285,7 @@ PHP
 main() {
   require_root
   source_env
+  ensure_app_user
 
   install_composer
   create_laravel_app
