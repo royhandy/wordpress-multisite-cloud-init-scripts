@@ -92,6 +92,7 @@ EOF
 
   # WordPress core
   env_set_if_missing WP_PRIMARY_DOMAIN "example.invalid"
+  env_set_if_missing WP_PRIMARY_NAME "Wordpress Network"
   env_set_if_missing WP_ADMIN_USER "admin"
   env_set_if_missing WP_ADMIN_PASSWORD "$(gen_short_secret)"
   env_set_if_missing WP_ADMIN_EMAIL "root@localhost"
