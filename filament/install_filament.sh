@@ -133,6 +133,9 @@ create_laravel_app() {
   find "$APP_DIR" -type d -exec chmod 0750 {} +
   find "$APP_DIR" -type f -exec chmod 0640 {} +
   chmod -R g+w "$APP_DIR/storage" "$APP_DIR/bootstrap/cache"
+
+  # Never cache config during install
+  rm -f "$APP_DIR/bootstrap/cache/config.php"
 }
 
 # -----------------------------
@@ -202,7 +205,14 @@ SQL
 
   chown "$APP_USER:$APP_GROUP" "$APP_DIR/.env"
   chmod 0640 "$APP_DIR/.env"
+
+  sudo -u "$APP_USER" -H bash -lc "
+  cd '$APP_DIR'
+  php artisan config:clear
+  php artisan cache:clear
+"
 }
+
 
 # -----------------------------
 # Filament v4
