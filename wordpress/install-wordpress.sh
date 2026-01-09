@@ -27,3 +27,29 @@ if [[ ! -f wp-settings.php ]]; then
 fi
 
 log "WordPress core ready"
+
+# install Wordpress
+
+log "Installing Wordpress"
+
+wp core multisite-install \
+  --url="$WP_PRIMARY_DOMAIN" \
+  --title="$WP_PRIMARY_NAME" \
+  --admin_user="$WP_ADMIN_USER" \
+  --admin_password="$WP_ADMIN_PASSWORD" \
+  --admin_email="$ADMIN_EMAIL" \
+  --subdomains \
+  --allow-root
+
+# Now place wp-config.php
+install -o root -g root -m 0640 \
+  "${TEMPLATE_DIR}/wordpress/wp-config.php" \
+  "${WEB_ROOT}/wp-config.php"
+  
+# Ensure ownership
+chown -R www-data:www-data "${WEB_ROOT}"
+find "${WEB_ROOT}" -type d -exec chmod 0755 {} \;
+find "${WEB_ROOT}" -type f -exec chmod 0644 {} \;
+chmod 0640 "${WEB_ROOT}"/wp-config.php
+
+log "Wordpress installed and file permissions set"
