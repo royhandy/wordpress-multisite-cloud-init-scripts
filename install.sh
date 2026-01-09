@@ -292,6 +292,11 @@ install_server_admin_nginx() {
     # -----------------------------
     echo "Updating SSL paths in ${CATCHALL_CONF}..."
 
+    # Replace server_name
+    sed -i \
+        "s/server_name .*;/server_name ${WP_PRIMARY_DOMAIN};/" \
+        "${NGINX_AVAILABLE}/${CATCHALL_CONF}"
+
     sed -i \
         "s|ssl_certificate .*;|ssl_certificate     ${CERT_PATH};|" \
         "${NGINX_AVAILABLE}/${CATCHALL_CONF}"
