@@ -92,6 +92,7 @@ EOF
   env_set_if_missing FILAMENT_ADMIN_PASSWORD "$(gen_short_secret)"
 
   # Database (generated once)
+  env_set_if_missing DB_HOST "localhost"
   env_set_if_missing DB_NAME "wp_$(openssl rand -hex 4)"
   env_set_if_missing DB_USER "wp_$(openssl rand -hex 4)"
   env_set_if_missing DB_PASSWORD "$(gen_secret)"
