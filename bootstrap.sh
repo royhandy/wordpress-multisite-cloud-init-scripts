@@ -151,6 +151,16 @@ prepare_state_dir() {
 }
 
 ########################################
+# Install Enable SSH Script
+########################################
+install_enable_ssh() {
+  # Install filament installer script
+  install -o root -g root -m 0750 \
+    "${TEMPLATE_DIR}/ssh/enable_ssh.sh" \
+    /usr/local/sbin/enable_ssh
+}
+
+########################################
 # Main
 ########################################
 main() {
@@ -178,6 +188,8 @@ main() {
   log "  1. Upload Cloudflare Origin certs to ${CERT_BASE}/<domain>/"
   log "  2. Edit /etc/server.env (domain + mail credentials)"
   log "  3. Run: /opt/server-template/install.sh"
+  log "  ---"
+  log "  enable_ssh [YOUR_IP_ADDRESS] to allow SSH"
 }
 
 main "$@"
