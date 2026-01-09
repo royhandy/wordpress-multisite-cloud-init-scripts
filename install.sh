@@ -256,7 +256,7 @@ install_server_admin_nginx() {
 
     NGINX_AVAILABLE="/etc/nginx/sites-available"
     NGINX_ENABLED="/etc/nginx/sites-enabled"
-    TEMPLATE_DIR="$(pwd)/nginx"
+    local TEMPLATE_DIR="${TEMPLATE_DIR}/nginx"
 
     ADMIN_CONF="server-admin.conf"
     CATCHALL_CONF="catchall.conf"
