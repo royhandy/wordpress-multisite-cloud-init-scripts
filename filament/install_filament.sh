@@ -342,31 +342,31 @@ create_filament_admin_user() {
     set -euo pipefail
     cd '$APP_DIR'
     php -r '
-      require \"vendor/autoload.php\";
-      \$app = require \"bootstrap/app.php\";
-      \$kernel = \$app->make(Illuminate\\\\Contracts\\\\Console\\\\Kernel::class);
-      \$kernel->bootstrap();
+require "vendor/autoload.php";
+$app = require "bootstrap/app.php";
+$kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+$kernel->bootstrap();
 
-      \$email = getenv(\"ADMIN_EMAIL\") ?: \"\";
-      \$name  = getenv(\"ADMIN_NAME\") ?: \"Admin\";
-      \$pass  = getenv(\"FILAMENT_ADMIN_PASSWORD\") ?: \"\";
+$email = getenv("ADMIN_EMAIL") ?: "";
+$name  = getenv("ADMIN_NAME") ?: "Admin";
+$pass  = getenv("FILAMENT_ADMIN_PASSWORD") ?: "";
 
-      if (!\$email) { fwrite(STDERR, \"ADMIN_EMAIL is missing.\\n\"); exit(2); }
-      if (!\$pass)  { fwrite(STDERR, \"FILAMENT_ADMIN_PASSWORD is missing.\\n\"); exit(2); }
+if (!$email) { fwrite(STDERR, "ADMIN_EMAIL is missing.\n"); exit(2); }
+if (!$pass)  { fwrite(STDERR, "FILAMENT_ADMIN_PASSWORD is missing.\n"); exit(2); }
 
-      \$userClass = \"App\\\\Models\\\\User\";
-      if (!class_exists(\$userClass)) { fwrite(STDERR, \"App\\\\Models\\\\User not found.\\n\"); exit(3); }
+$userClass = "App\Models\User";
+if (!class_exists($userClass)) { fwrite(STDERR, "App\Models\User not found.\n"); exit(3); }
 
-      \$user = \$userClass::firstOrNew([\"email\" => \$email]);
-      \$user->name = \$name ?: (\$user->name ?: \"Admin\");
-      \$user->password = Illuminate\\\\Support\\\\Facades\\\\Hash::make(\$pass);
+$user = $userClass::firstOrNew(["email" => $email]);
+$user->name = $name ?: ($user->name ?: "Admin");
+$user->password = Illuminate\Support\Facades\Hash::make($pass);
 
-      if (property_exists(\$user, \"email_verified_at\") && !\$user->email_verified_at) {
-        \$user->email_verified_at = now();
-      }
+if (property_exists($user, "email_verified_at") && !$user->email_verified_at) {
+    $user->email_verified_at = now();
+}
 
-      \$user->save();
-    '
+$user->save();
+'
   "
 
   log "Filament admin user ensured for ADMIN_EMAIL=${ADMIN_EMAIL}"
