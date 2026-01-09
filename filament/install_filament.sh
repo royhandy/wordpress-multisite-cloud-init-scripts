@@ -208,61 +208,74 @@ mysql_exec() {
 }
 
 configure_app_env_and_db() {
-  log "Configuring Laravel .env and creating a dedicated DB/user..."
+  log "Configuring database and Laravel environment..."
 
-  need_cmd openssl
   need_cmd mysql
+  need_cmd openssl
 
-  local domain app_url
-  domain="$WP_PRIMARY_DOMAIN"
-  app_url="https://${domain}:${APP_PORT}"
+  local db="server_admin"
+  local user="serveradmin"
+  local creds_file="${STATE_DIR}/server-admin-db.creds"
+  local pass
 
-  # Ensure app key exists
-  sudo -u "$APP_USER" -H bash -lc "cd '$APP_DIR' && php artisan key:generate --force"
-
-  # Create dedicated DB + user
-  local sa_db sa_user sa_pass creds_file
-  sa_db="server_admin"
-  sa_user="serveradmin"
-  sa_pass="$(openssl rand -hex 24)"
-  creds_file="${STATE_DIR}/server-admin-db.creds"
-
+  # Ensure state dir exists
   install -d -m 0700 -o root -g root "$STATE_DIR"
 
+  # Generate OR reuse DB password
+  if [[ -f "$creds_file" ]]; then
+    log "Reusing existing database credentials"
+    # shellcheck disable=SC1090
+    source "$creds_file"
+    pass="$DB_PASSWORD"
+  else
+    log "Generating new database credentials"
+    pass="$(openssl rand -hex 24)"
+    cat > "$creds_file" <<EOF
+DB_DATABASE=${db}
+DB_USERNAME=${user}
+DB_PASSWORD=${pass}
+EOF
+    chmod 0600 "$creds_file"
+    chown root:root "$creds_file"
+  fi
+
+  # Ensure database and user exist and password is correct
   mysql_exec <<SQL
-CREATE DATABASE IF NOT EXISTS \`${sa_db}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER IF NOT EXISTS '${sa_user}'@'localhost' IDENTIFIED BY '${sa_pass}';
-GRANT ALL PRIVILEGES ON \`${sa_db}\`.* TO '${sa_user}'@'localhost';
+CREATE DATABASE IF NOT EXISTS \`${db}\`
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE USER IF NOT EXISTS '${user}'@'localhost';
+
+ALTER USER '${user}'@'localhost'
+  IDENTIFIED BY '${pass}';
+
+GRANT ALL PRIVILEGES ON \`${db}\`.* TO '${user}'@'localhost';
 FLUSH PRIVILEGES;
 SQL
 
-  cat > "$creds_file" <<EOF
-DB_DATABASE=${sa_db}
-DB_USERNAME=${sa_user}
-DB_PASSWORD=${sa_pass}
-EOF
-  chmod 0600 "$creds_file"
-  chown root:root "$creds_file"
+  # Ensure Laravel app key exists
+  sudo -u "$APP_USER" -H bash -lc "cd '$APP_DIR' && php artisan key:generate --force"
 
-  # Update Laravel .env
+  # Update Laravel .env deterministically
   sed -i \
-    -e "s/^APP_NAME=.*/APP_NAME=\"${APP_NAME}\"/" \
-    -e "s|^APP_URL=.*|APP_URL=${app_url}|" \
+    -e "s|^APP_NAME=.*|APP_NAME=\"${APP_NAME}\"|" \
+    -e "s|^APP_URL=.*|APP_URL=https://${WP_PRIMARY_DOMAIN}:${APP_PORT}|" \
     -e "s/^APP_ENV=.*/APP_ENV=production/" \
     -e "s/^APP_DEBUG=.*/APP_DEBUG=false/" \
     -e "s/^DB_CONNECTION=.*/DB_CONNECTION=mysql/" \
     -e "s/^DB_HOST=.*/DB_HOST=127.0.0.1/" \
     -e "s/^DB_PORT=.*/DB_PORT=3306/" \
-    -e "s/^DB_DATABASE=.*/DB_DATABASE=${sa_db}/" \
-    -e "s/^DB_USERNAME=.*/DB_USERNAME=${sa_user}/" \
-    -e "s/^DB_PASSWORD=.*/DB_PASSWORD=${sa_pass}/" \
+    -e "s/^DB_DATABASE=.*/DB_DATABASE=${db}/" \
+    -e "s/^DB_USERNAME=.*/DB_USERNAME=${user}/" \
+    -e "s/^DB_PASSWORD=.*/DB_PASSWORD=${pass}/" \
     "$APP_DIR/.env"
 
   chown "$APP_USER:$APP_GROUP" "$APP_DIR/.env"
   chmod 0640 "$APP_DIR/.env"
 
-  log "DB creds saved (root-only): $creds_file"
+  log "Database configured and credentials synchronized"
 }
+
 
 artisan_has() {
   local cmd="$1"
