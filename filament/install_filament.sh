@@ -170,18 +170,6 @@ configure_app_env_and_db() {
   local creds_file="${STATE_DIR}/server-admin-db.creds"
   local pass
 
-  set_env_var APP_NAME "\"${APP_NAME}\"" "$APP_DIR/.env"
-  set_env_var APP_URL "https://${WP_PRIMARY_DOMAIN}:${APP_PORT}" "$APP_DIR/.env"
-  set_env_var APP_ENV "production" "$APP_DIR/.env"
-  set_env_var APP_DEBUG "false" "$APP_DIR/.env"
-  
-  set_env_var DB_CONNECTION "mysql" "$APP_DIR/.env"
-  set_env_var DB_HOST "127.0.0.1" "$APP_DIR/.env"
-  set_env_var DB_PORT "3306" "$APP_DIR/.env"
-  set_env_var DB_DATABASE "$db" "$APP_DIR/.env"
-  set_env_var DB_USERNAME "$user" "$APP_DIR/.env"
-  set_env_var DB_PASSWORD "$pass" "$APP_DIR/.env"
-
   install -d -m 0700 -o root -g root "$STATE_DIR"
 
   if [[ -f "$creds_file" ]]; then
@@ -199,6 +187,18 @@ DB_PASSWORD=${pass}
 EOF
     chmod 0600 "$creds_file"
     chown root:root "$creds_file"
+
+    set_env_var APP_NAME "\"${APP_NAME}\"" "$APP_DIR/.env"
+    set_env_var APP_URL "https://${WP_PRIMARY_DOMAIN}:${APP_PORT}" "$APP_DIR/.env"
+    set_env_var APP_ENV "production" "$APP_DIR/.env"
+    set_env_var APP_DEBUG "false" "$APP_DIR/.env"
+    
+    set_env_var DB_CONNECTION "mysql" "$APP_DIR/.env"
+    set_env_var DB_HOST "127.0.0.1" "$APP_DIR/.env"
+    set_env_var DB_PORT "3306" "$APP_DIR/.env"
+    set_env_var DB_DATABASE "$db" "$APP_DIR/.env"
+    set_env_var DB_USERNAME "$user" "$APP_DIR/.env"
+    set_env_var DB_PASSWORD "$pass" "$APP_DIR/.env"
   fi
 
   mysql_exec <<SQL
