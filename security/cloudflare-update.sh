@@ -1,6 +1,22 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+mkdir -p /var/lib/server-template/cloudflare
+chmod 0700 /var/lib/server-template/cloudflare
+chown root:root /var/lib/server-template/cloudflare
+
+# Ensure base state directory exists
+install -d -o root -g root -m 0700 /var/lib/server-template \
+  || die "Cannot create /var/lib/server-template"
+
+install -d -o root -g root -m 0700 "${STATE_DIR}" \
+  || die "Cannot create state dir: ${STATE_DIR}"
+
+# Write test
+touch "${STATE_DIR}/.writetest" \
+  || die "State dir not writable: ${STATE_DIR}"
+rm -f "${STATE_DIR}/.writetest"
+
 ###############################################################################
 # Cloudflare IP updater for nftables + nginx
 #
