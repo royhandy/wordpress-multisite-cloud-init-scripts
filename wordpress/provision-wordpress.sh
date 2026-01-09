@@ -27,23 +27,3 @@ if [[ ! -f wp-settings.php ]]; then
 fi
 
 log "WordPress core ready"
-
-# install Wordpress
-
-wp core multisite-install \
-  --url="$WP_PRIMARY_SERVER" \
-  --title="$WP_PRIMARY_NAME" \
-  --admin_user="$WP_ADMIN_USER" \
-  --admin_password="$WP_ADMIN_PASSWORD" \
-  --admin_email="$WP_ADMIN_EMAIL" \
-  --subdomains \
-  --allow-root
-
-
-
-# Ensure ownership
-touch "${WEB_ROOT}"/wp-config.php
-chown -R www-data:www-data "${WEB_ROOT}"
-find "${WEB_ROOT}" -type d -exec chmod 0755 {} \;
-find "${WEB_ROOT}" -type f -exec chmod 0644 {} \;
-chmod 0640 "${WEB_ROOT}"/wp-config.php
