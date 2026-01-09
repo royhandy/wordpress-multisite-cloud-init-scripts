@@ -31,8 +31,8 @@ log "WordPress core ready"
 # install Wordpress
 
 wp core multisite-install \
-  --url="https://prong.royhandy.com" \
-  --title="Prong Network" \
+  --url="$WP_PRIMARY_SERVER" \
+  --title="$WP_PRIMARY_NAME" \
   --admin_user="$WP_ADMIN_USER" \
   --admin_password="$WP_ADMIN_PASSWORD" \
   --admin_email="$WP_ADMIN_EMAIL" \
@@ -42,6 +42,7 @@ wp core multisite-install \
 
 
 # Ensure ownership
+touch "${WEB_ROOT}"/wp-config.php
 chown -R www-data:www-data "${WEB_ROOT}"
 find "${WEB_ROOT}" -type d -exec chmod 0755 {} \;
 find "${WEB_ROOT}" -type f -exec chmod 0644 {} \;
