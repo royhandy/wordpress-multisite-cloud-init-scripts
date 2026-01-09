@@ -242,6 +242,94 @@ install_filament() {
   /usr/local/sbin/install_filament
 }
 
+
+########################################
+# Server admin NGINX and Firewall, SSL Catchall Conf
+########################################
+install_server_admin_nginx() {
+    set -e
+
+    echo "Setting up server-admin nginx configuration..."
+
+    # Required variables
+    : "${WP_PRIMARY_DOMAIN:?WP_PRIMARY_DOMAIN is not set}"
+
+    NGINX_AVAILABLE="/etc/nginx/sites-available"
+    NGINX_ENABLED="/etc/nginx/sites-enabled"
+    TEMPLATE_DIR="$(pwd)/nginx"
+
+    ADMIN_CONF="server-admin.conf"
+    CATCHALL_CONF="catchall.conf"
+
+    CERT_PATH="/etc/ssl/cf-origin/${WP_PRIMARY_DOMAIN}/cert.pem"
+    KEY_PATH="/etc/ssl/cf-origin/${WP_PRIMARY_DOMAIN}/key.pem"
+
+    # -----------------------------
+    # Copy server-admin.conf
+    # -----------------------------
+    echo "Installing ${ADMIN_CONF}..."
+
+    install -m 644 \
+        "${TEMPLATE_DIR}/${ADMIN_CONF}" \
+        "${NGINX_AVAILABLE}/${ADMIN_CONF}"
+
+    # Replace server_name
+    sed -i \
+        "s/server_name .*;/server_name ${WP_PRIMARY_DOMAIN};/" \
+        "${NGINX_AVAILABLE}/${ADMIN_CONF}"
+
+    # Replace SSL paths
+    sed -i \
+        "s|ssl_certificate .*;|ssl_certificate     ${CERT_PATH};|" \
+        "${NGINX_AVAILABLE}/${ADMIN_CONF}"
+
+    sed -i \
+        "s|ssl_certificate_key .*;|ssl_certificate_key ${KEY_PATH};|" \
+        "${NGINX_AVAILABLE}/${ADMIN_CONF}"
+
+    # -----------------------------
+    # Update catchall.conf SSL paths
+    # -----------------------------
+    echo "Updating SSL paths in ${CATCHALL_CONF}..."
+
+    sed -i \
+        "s|ssl_certificate .*;|ssl_certificate     ${CERT_PATH};|" \
+        "${NGINX_AVAILABLE}/${CATCHALL_CONF}"
+
+    sed -i \
+        "s|ssl_certificate_key .*;|ssl_certificate_key ${KEY_PATH};|" \
+        "${NGINX_AVAILABLE}/${CATCHALL_CONF}"
+
+    # -----------------------------
+    # Enable server-admin site
+    # -----------------------------
+    if [ ! -L "${NGINX_ENABLED}/${ADMIN_CONF}" ]; then
+        ln -s \
+            "${NGINX_AVAILABLE}/${ADMIN_CONF}" \
+            "${NGINX_ENABLED}/${ADMIN_CONF}"
+    fi
+
+    # -----------------------------
+    # Firewall: allow 8443
+    # -----------------------------
+    if command -v nft >/dev/null 2>&1; then
+        echo "Allowing TCP 8443 in nftables..."
+
+        nft list ruleset | grep -q "tcp dport 8443" || \
+        nft add rule inet filter input tcp dport 8443 ct state new accept
+    fi
+
+    # -----------------------------
+    # Reload nginx once
+    # -----------------------------
+    echo "Reloading nginx..."
+    nginx -t
+    systemctl reload nginx
+
+    echo "server-admin nginx configuration complete."
+}
+
+
 ########################################
 # Alerts + MOTD
 ########################################
@@ -290,6 +378,7 @@ main() {
   install_web
   install_wordpress
   install_filament
+  install_server_admin_nginx
   install_alerts
   install_motd
   install_cloudflare_update
