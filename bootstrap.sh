@@ -154,8 +154,9 @@ prepare_state_dir() {
 # Install Enable SSH Script
 ########################################
 install_enable_ssh() {
-  # Install filament installer script
-  install -o root -g root -m 0750 \
+  log "Installing enable_ssh helper"
+
+  install -o root -g root -m 0755 \
     "${TEMPLATE_DIR}/ssh/enable_ssh.sh" \
     /usr/local/sbin/enable_ssh
 }
