@@ -37,17 +37,26 @@ fi
 dpkg --configure -a || true
 
 ###############################################################################
-# Enable password auth
+# Configure sshd_config (EXPLICIT)
 ###############################################################################
 
 SSHD_CONFIG="/etc/ssh/sshd_config"
 
-log "Enabling password authentication"
+log "Configuring sshd_config for password auth + root login"
 
-sed -i \
-  -e 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' \
-  -e 's/^#\?PermitRootLogin.*/PermitRootLogin yes/' \
-  "${SSHD_CONFIG}"
+# Ensure PasswordAuthentication yes
+if grep -Eq '^\s*PasswordAuthentication\s+' "${SSHD_CONFIG}"; then
+  sed -i 's/^\s*#\?\s*PasswordAuthentication\s\+.*/PasswordAuthentication yes/' "${SSHD_CONFIG}"
+else
+  echo "PasswordAuthentication yes" >> "${SSHD_CONFIG}"
+fi
+
+# Ensure PermitRootLogin yes
+if grep -Eq '^\s*PermitRootLogin\s+' "${SSHD_CONFIG}"; then
+  sed -i 's/^\s*#\?\s*PermitRootLogin\s\+.*/PermitRootLogin yes/' "${SSHD_CONFIG}"
+else
+  echo "PermitRootLogin yes" >> "${SSHD_CONFIG}"
+fi
 
 ###############################################################################
 # Enable + start SSH
@@ -69,9 +78,13 @@ nft add rule inet filter input ip saddr "${OFFICE_IP}" tcp dport 22 accept
 ###############################################################################
 
 log "SSH ENABLED (TEMPORARY)"
-echo "SSH is now available from ${OFFICE_IP}"
-echo "When finished:"
+echo
+echo "You may now SSH using:"
+echo "  ssh root@<server-ip>"
+echo
+echo "IMPORTANT: When finished, lock SSH back down:"
 echo "  systemctl stop ssh"
 echo "  systemctl disable ssh"
 echo "  systemctl mask ssh ssh.socket"
 echo "  apt purge -y openssh-server openssh-sftp-server"
+echo
