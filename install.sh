@@ -228,7 +228,7 @@ EOF
   log "Installing Wordpress"
   
   wp core multisite-install \
-    --url="$WP_PRIMARY_SERVER" \
+    --url="$WP_PRIMARY_DOMAIN" \
     --title="$WP_PRIMARY_NAME" \
     --admin_user="$WP_ADMIN_USER" \
     --admin_password="$WP_ADMIN_PASSWORD" \
