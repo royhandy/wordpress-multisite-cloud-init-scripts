@@ -10,7 +10,7 @@ BOOTSTRAP_MARKER="${STATE_DIR}/bootstrap.completed"
 INSTALL_MARKER="${STATE_DIR}/install.completed"
 
 CERT_BASE="/etc/ssl/cf-origin"
-TEMPLATE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TEMPLATE_DIR="/opt/server-template"
 
 log() { echo "[install] $*"; }
 die() { echo "[install] ERROR: $*" >&2; exit 1; }
