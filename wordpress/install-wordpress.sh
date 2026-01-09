@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 ENV_FILE="/etc/server.env"
 WEB_ROOT="/var/www/wordpress"
-TEMPLATE_DIR="/some/path"   # ← you need to define this!
+TEMPLATE_DIR="/opt/server-template"
 
 log() { echo "[wp-provision] $*"; }
 
