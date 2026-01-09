@@ -15,11 +15,18 @@ function env_required(string $key): string {
     return $value;
 }
 
+if (PHP_SAPI === 'cli' && file_exists('/etc/server.env')) {
+    foreach (file('/etc/server.env', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+        if ($line[0] === '#' || !str_contains($line, '=')) continue;
+        putenv($line);
+    }
+}
+
 /** Database */
 define('DB_NAME',     env_required('DB_NAME'));
 define('DB_USER',     env_required('DB_USER'));
 define('DB_PASSWORD', env_required('DB_PASSWORD'));
-define('DB_HOST',     'localhost');
+define('DB_HOST', env_required('DB_HOST'));
 define('DB_CHARSET',  'utf8mb4');
 define('DB_COLLATE',  '');
 
