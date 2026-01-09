@@ -277,6 +277,7 @@ SQL
 }
 
 
+
 artisan_has() {
   local cmd="$1"
   sudo -u "$APP_USER" -H bash -lc "cd '$APP_DIR' && php artisan list" | grep -qE "^ +${cmd}\b"
@@ -349,34 +350,45 @@ run_migrations() {
 }
 
 create_filament_admin_user() {
-  log "Creating/updating Filament admin user (after migrations)..."
+  log "Ensuring Filament admin user..."
 
-  sudo -u "$APP_USER" -H bash -lc "
-    set -euo pipefail
-    cd '$APP_DIR'
-    php -r '
-require "vendor/autoload.php";
-$app = require "bootstrap/app.php";
-$kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
-$kernel->bootstrap();
+  sudo -u "$APP_USER" -H env \
+    ADMIN_EMAIL="$ADMIN_EMAIL" \
+    ADMIN_NAME="$ADMIN_NAME" \
+    FILAMENT_ADMIN_PASSWORD="$FILAMENT_ADMIN_PASSWORD" \
+    bash -lc "
+      cd '$APP_DIR'
+      php <<'PHP'
+<?php
 
-$email = getenv("ADMIN_EMAIL") ?: "";
-$name  = getenv("ADMIN_NAME") ?: "Admin";
-$pass  = getenv("FILAMENT_ADMIN_PASSWORD") ?: "";
+require 'vendor/autoload.php';
 
-if (!$email) { fwrite(STDERR, "ADMIN_EMAIL is missing.\n"); exit(2); }
-if (!$pass)  { fwrite(STDERR, "FILAMENT_ADMIN_PASSWORD is missing.\n"); exit(2); }
+$app = require 'bootstrap/app.php';
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
-$userClass = "App\Models\User";
-if (!class_exists($userClass)) { fwrite(STDERR, "App\Models\User not found.\n"); exit(3); }
+$email = getenv('ADMIN_EMAIL');
+$name  = getenv('ADMIN_NAME') ?: 'Admin';
+$pass  = getenv('FILAMENT_ADMIN_PASSWORD');
 
-$user = $userClass::firstOrNew(["email" => $email]);
-$user->name = $name ?: ($user->name ?: "Admin");
+if (!$email || !$pass) {
+    fwrite(STDERR, \"Missing admin credentials\\n\");
+    exit(2);
+}
+
+$user = App\Models\User::firstOrNew(['email' => $email]);
+$user->name = $name;
 $user->password = Illuminate\Support\Facades\Hash::make($pass);
 
-if (property_exists($user, "email_verified_at") && !$user->email_verified_at) {
+if (property_exists($user, 'email_verified_at')) {
     $user->email_verified_at = now();
 }
+
+$user->save();
+
+PHP
+    "
+}
+
 
 $user->save();
 '
