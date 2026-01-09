@@ -34,6 +34,10 @@ gen_short_secret() {
   tr -dc 'A-Za-z0-9' </dev/urandom | head -c 10
 }
 
+gen_short_secret2() {
+  tr -dc 'A-Za-z0-9' </dev/urandom | head -c 10
+}
+
 env_set_if_missing() {
   local key="$1" value="$2"
   grep -qE "^${key}=" "${ENV_FILE}" 2>/dev/null || echo "${key}=${value}" >> "${ENV_FILE}"
@@ -81,6 +85,11 @@ EOF
   env_set_if_missing TZ "UTC"
   env_set_if_missing WEB_ROOT "/var/www/wordpress"
   env_set_if_missing STATE_DIR "${STATE_DIR}"
+  env_set_if_missing ADMIN_NAME "Admin User"
+  env_set_if_missing ADMIN_EMAIL "root@localhost"
+
+  # Filament Server Admin App
+  env_set_if_missing FILAMENT_ADMIN_PASSWORD "$(gen_short_secret)"
 
   # Database (generated once)
   env_set_if_missing DB_NAME "wp_$(openssl rand -hex 4)"
@@ -94,8 +103,7 @@ EOF
   env_set_if_missing WP_PRIMARY_DOMAIN "example.invalid"
   env_set_if_missing WP_PRIMARY_NAME "Wordpress Network"
   env_set_if_missing WP_ADMIN_USER "admin"
-  env_set_if_missing WP_ADMIN_PASSWORD "$(gen_short_secret)"
-  env_set_if_missing WP_ADMIN_EMAIL "root@localhost"
+  env_set_if_missing WP_ADMIN_PASSWORD "$(gen_short_secret2)"
   env_set_if_missing WP_SUBDOMAIN_INSTALL "1"
 
   # WordPress auth keys & salts (CRITICAL — generate once)
