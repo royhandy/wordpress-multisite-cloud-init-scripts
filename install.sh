@@ -232,7 +232,7 @@ EOF
     --title="$WP_PRIMARY_NAME" \
     --admin_user="$WP_ADMIN_USER" \
     --admin_password="$WP_ADMIN_PASSWORD" \
-    --admin_email="$WP_ADMIN_EMAIL" \
+    --admin_email="$ADMIN_EMAIL" \
     --subdomains \
     --allow-root
 
