@@ -285,7 +285,6 @@ main() {
 
   install_base_packages
   install_firewall
-  install_cloudflare_update
   install_db
   install_redis
   install_web
@@ -293,6 +292,7 @@ main() {
   install_filament
   install_alerts
   install_motd
+  install_cloudflare_update
   start_nginx
 
   date -Is > "${INSTALL_MARKER}"
