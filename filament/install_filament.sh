@@ -191,11 +191,13 @@ run_migrations() {
 create_filament_admin_user() {
   log "Ensuring Filament admin user..."
 
+  cd "$APP_DIR"
+
   sudo -u "$APP_USER" -H env \
     ADMIN_EMAIL="$ADMIN_EMAIL" \
     ADMIN_NAME="$ADMIN_NAME" \
     FILAMENT_ADMIN_PASSWORD="$FILAMENT_ADMIN_PASSWORD" \
-    bash -lc 'cd "'"$APP_DIR"'" && php <<'"'"'PHP'"'"'
+    php <<'PHP'
 <?php
 
 require 'vendor/autoload.php';
@@ -222,10 +224,11 @@ if (property_exists($user, 'email_verified_at')) {
 
 $user->save();
 
-PHP'
-  
+PHP
+
   log "Filament admin user ensured for ADMIN_EMAIL=${ADMIN_EMAIL}"
 }
+
 
 
 # -----------------------------
