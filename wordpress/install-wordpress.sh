@@ -30,16 +30,17 @@ fi
 
 log "WordPress core ready"
 
+# Copy wp-config FIRST so WP-CLI has DB credentials
+install -o root -g root -m 0640 \
+  "${TEMPLATE_DIR}/wordpress/wp-config.php" \
+  "${WEB_ROOT}/wp-config.php"
+
 # Very important: test DB connection early!
 log "Testing database connection..."
 wp db check --allow-root || { log "Database connection failed!"; exit 1; }
 
 log "Installing WordPress Multisite"
 
-# Copy your prepared wp-config.php FIRST (must contain DB credentials!)
-install -o root -g root -m 0640 \
-  "${TEMPLATE_DIR}/wordpress/wp-config.php" \
-  "${WEB_ROOT}/wp-config.php"
 
 wp core multisite-install \
   --url="$WP_PRIMARY_DOMAIN" \
