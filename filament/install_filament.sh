@@ -27,6 +27,20 @@ require_root() {
   [[ "${EUID:-$(id -u)}" -eq 0 ]] || die "Run as root"
 }
 
+set_env_var() {
+  local key="$1"
+  local value="$2"
+  local file="$3"
+
+  if grep -qE "^${key}=" "$file"; then
+    sed -i "s|^${key}=.*|${key}=${value}|" "$file"
+  elif grep -qE "^#\s*${key}=" "$file"; then
+    sed -i "s|^#\s*${key}=.*|${key}=${value}|" "$file"
+  else
+    echo "${key}=${value}" >> "$file"
+  fi
+}
+
 # -----------------------------
 # App system user
 # -----------------------------
@@ -156,6 +170,18 @@ configure_app_env_and_db() {
   local creds_file="${STATE_DIR}/server-admin-db.creds"
   local pass
 
+  set_env_var APP_NAME "\"${APP_NAME}\"" "$APP_DIR/.env"
+  set_env_var APP_URL "https://${WP_PRIMARY_DOMAIN}:${APP_PORT}" "$APP_DIR/.env"
+  set_env_var APP_ENV "production" "$APP_DIR/.env"
+  set_env_var APP_DEBUG "false" "$APP_DIR/.env"
+  
+  set_env_var DB_CONNECTION "mysql" "$APP_DIR/.env"
+  set_env_var DB_HOST "127.0.0.1" "$APP_DIR/.env"
+  set_env_var DB_PORT "3306" "$APP_DIR/.env"
+  set_env_var DB_DATABASE "$db" "$APP_DIR/.env"
+  set_env_var DB_USERNAME "$user" "$APP_DIR/.env"
+  set_env_var DB_PASSWORD "$pass" "$APP_DIR/.env"
+
   install -d -m 0700 -o root -g root "$STATE_DIR"
 
   if [[ -f "$creds_file" ]]; then
@@ -190,18 +216,7 @@ SQL
 
   sudo -u "$APP_USER" -H bash -lc "cd '$APP_DIR' && php artisan key:generate --force"
 
-  sed -i \
-    -e "s|^APP_NAME=.*|APP_NAME=\"${APP_NAME}\"|" \
-    -e "s|^APP_URL=.*|APP_URL=https://${WP_PRIMARY_DOMAIN}:${APP_PORT}|" \
-    -e "s/^APP_ENV=.*/APP_ENV=production/" \
-    -e "s/^APP_DEBUG=.*/APP_DEBUG=false/" \
-    -e "s/^DB_CONNECTION=.*/DB_CONNECTION=mysql/" \
-    -e "s/^DB_HOST=.*/DB_HOST=127.0.0.1/" \
-    -e "s/^DB_PORT=.*/DB_PORT=3306/" \
-    -e "s/^DB_DATABASE=.*/DB_DATABASE=${db}/" \
-    -e "s/^DB_USERNAME=.*/DB_USERNAME=${user}/" \
-    -e "s/^DB_PASSWORD=.*/DB_PASSWORD=${pass}/" \
-    "$APP_DIR/.env"
+
 
   chown "$APP_USER:$APP_GROUP" "$APP_DIR/.env"
   chmod 0640 "$APP_DIR/.env"
