@@ -41,11 +41,29 @@ require_env() {
   source "${ENV_FILE}"
 }
 
-ufw disable
-
 ########################################
 # Helpers
 ########################################
+disable_ufw_if_present() {
+  if command -v ufw >/dev/null 2>&1 || [[ -f /etc/ufw/ufw.conf ]]; then
+    log "UFW detected; disabling"
+    if command -v ufw >/dev/null 2>&1; then
+      ufw disable || log "UFW disable command failed"
+    else
+      log "ufw command missing; skipping ufw disable command"
+    fi
+    if command -v systemctl >/dev/null 2>&1; then
+      if systemctl list-unit-files --type=service --no-legend 2>/dev/null | awk '{print $1}' | grep -qx "ufw.service"; then
+        systemctl disable --now ufw || log "UFW systemd service disable failed"
+      else
+        log "UFW systemd service not found; skipping systemctl disable"
+      fi
+    fi
+  else
+    log "UFW not detected; skipping disable"
+  fi
+}
+
 ensure_dir() {
   install -d -o root -g root -m "${2:-0755}" "$1"
 }
@@ -396,6 +414,7 @@ main() {
   refuse_cloud_init
   require_bootstrap
   require_env
+  disable_ufw_if_present
   validate_primary_cert
 
   if [[ -f "${INSTALL_MARKER}" ]]; then
