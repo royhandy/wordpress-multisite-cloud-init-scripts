@@ -437,13 +437,49 @@ install_server_admin_nginx() {
     fi
 
     # -----------------------------
-    # Firewall: allow 8443
+    # Firewall: allow 8443 (persistent nftables include)
     # -----------------------------
     if command -v nft >/dev/null 2>&1; then
-        echo "Allowing TCP 8443 in nftables..."
+        echo "Allowing TCP 8443 in nftables (persistent include)..."
 
-        nft list ruleset | grep -q "tcp dport 8443" || \
-        nft add rule inet filter input tcp dport 8443 ct state new accept
+        NFT_INCLUDE_DIR="/etc/nftables.d"
+        NFT_INCLUDE_FILE="${NFT_INCLUDE_DIR}/allow-8443.nft"
+        NFT_CONF="/etc/nftables.conf"
+        NFT_MARKER_BEGIN="# BEGIN wordpress-multisite-installer 8443"
+        NFT_MARKER_END="# END wordpress-multisite-installer 8443"
+
+        install -d -o root -g root -m 0755 "${NFT_INCLUDE_DIR}"
+
+        if [[ -f "${NFT_CONF}" ]] && grep -Fq "${NFT_MARKER_BEGIN}" "${NFT_CONF}"; then
+            tmp="$(mktemp)"
+            awk -v begin="${NFT_MARKER_BEGIN}" -v end="${NFT_MARKER_END}" '
+              $0 == begin {print begin; print "include \"/etc/nftables.d/allow-8443.nft\""; skip=1; next}
+              $0 == end {skip=0; print end; next}
+              !skip {print}
+            ' "${NFT_CONF}" > "${tmp}"
+            mv "${tmp}" "${NFT_CONF}"
+        elif [[ -f "${NFT_CONF}" ]] && grep -Fq 'include "/etc/nftables.d/allow-8443.nft"' "${NFT_CONF}"; then
+            true
+        else
+            cat >> "${NFT_CONF}" <<EOF
+
+${NFT_MARKER_BEGIN}
+include "/etc/nftables.d/allow-8443.nft"
+${NFT_MARKER_END}
+EOF
+        fi
+
+        cat > "${NFT_INCLUDE_FILE}" <<EOF
+# Managed by wordpress-multisite-installer
+add rule inet filter input tcp dport 8443 ct state new accept
+EOF
+        chmod 0644 "${NFT_INCLUDE_FILE}"
+
+        if systemctl list-unit-files --no-legend 2>/dev/null | awk '{print $1}' | grep -Fxq nftables.service; then
+            systemctl reload nftables || systemctl restart nftables
+        else
+            nft -f "${NFT_CONF}"
+        fi
     fi
 
     # -----------------------------
