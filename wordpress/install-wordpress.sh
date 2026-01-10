@@ -9,8 +9,11 @@ log() { echo "[wp-provision] $*"; }
 die() { echo "[wp-provision] ERROR: $*" >&2; exit 1; }
 
 # Load environment
+[[ -f "${ENV_FILE}" ]] || die "${ENV_FILE} missing"
+set -a
 # shellcheck disable=SC1091
 source "${ENV_FILE}"
+set +a
 
 mkdir -p "${WEB_ROOT}"
 cd "${WEB_ROOT}"
@@ -55,6 +58,12 @@ wp db check --allow-root || { log "Database connection failed!"; exit 1; }
 
 log "Installing WordPress Multisite"
 
+wp_subdomain_install="${WP_SUBDOMAIN_INSTALL:-}"
+case "${wp_subdomain_install,,}" in
+  1|true) subdomain_args=(--subdomains) ;;
+  *) subdomain_args=() ;;
+esac
+
 
 wp core multisite-install \
   --url="$WP_PRIMARY_DOMAIN" \
@@ -62,7 +71,7 @@ wp core multisite-install \
   --admin_user="$WP_ADMIN_USER" \
   --admin_password="$WP_ADMIN_PASSWORD" \
   --admin_email="$ADMIN_EMAIL" \
-  --subdomains \
+  "${subdomain_args[@]}" \
   --skip-email \
   --allow-root
 
