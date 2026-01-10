@@ -186,7 +186,11 @@ create_laravel_app() {
   install -d -m 0750 -o "$APP_USER" -g "$APP_GROUP" "$(dirname "$APP_DIR")"
 
   sudo -u "$APP_USER" -H \
-    composer create-project laravel/laravel:^12.0 "$APP_DIR" --no-interaction
+    composer create-project laravel/laravel:^12.0 "$APP_DIR" --no-interaction --no-scripts
+
+  if [[ ! -f "$APP_DIR/.env" && -f "$APP_DIR/.env.example" ]]; then
+    cp "$APP_DIR/.env.example" "$APP_DIR/.env"
+  fi
 
   chown -R "$APP_USER:$APP_GROUP" "$APP_DIR"
   find "$APP_DIR" -type d -exec chmod 0750 {} +
@@ -233,19 +237,23 @@ DB_PASSWORD=${pass}
 EOF
     chmod 0600 "$creds_file"
     chown root:root "$creds_file"
-
-    set_env_var APP_NAME "\"${APP_NAME}\"" "$APP_DIR/.env"
-    set_env_var APP_URL "https://${WP_PRIMARY_DOMAIN}:${APP_PORT}" "$APP_DIR/.env"
-    set_env_var APP_ENV "production" "$APP_DIR/.env"
-    set_env_var APP_DEBUG "false" "$APP_DIR/.env"
-    
-    set_env_var DB_CONNECTION "mysql" "$APP_DIR/.env"
-    set_env_var DB_HOST "127.0.0.1" "$APP_DIR/.env"
-    set_env_var DB_PORT "3306" "$APP_DIR/.env"
-    set_env_var DB_DATABASE "$db" "$APP_DIR/.env"
-    set_env_var DB_USERNAME "$user" "$APP_DIR/.env"
-    set_env_var DB_PASSWORD "$pass" "$APP_DIR/.env"
   fi
+
+  if [[ ! -f "$APP_DIR/.env" && -f "$APP_DIR/.env.example" ]]; then
+    cp "$APP_DIR/.env.example" "$APP_DIR/.env"
+  fi
+
+  set_env_var APP_NAME "\"${APP_NAME}\"" "$APP_DIR/.env"
+  set_env_var APP_URL "https://${WP_PRIMARY_DOMAIN}:${APP_PORT}" "$APP_DIR/.env"
+  set_env_var APP_ENV "production" "$APP_DIR/.env"
+  set_env_var APP_DEBUG "false" "$APP_DIR/.env"
+
+  set_env_var DB_CONNECTION "mysql" "$APP_DIR/.env"
+  set_env_var DB_HOST "127.0.0.1" "$APP_DIR/.env"
+  set_env_var DB_PORT "3306" "$APP_DIR/.env"
+  set_env_var DB_DATABASE "$db" "$APP_DIR/.env"
+  set_env_var DB_USERNAME "$user" "$APP_DIR/.env"
+  set_env_var DB_PASSWORD "$pass" "$APP_DIR/.env"
 
   mysql_exec <<SQL
 CREATE DATABASE IF NOT EXISTS \`${db}\`
@@ -270,7 +278,6 @@ SQL
   sudo -u "$APP_USER" -H bash -lc "
   cd '$APP_DIR'
   php artisan config:clear
-  php artisan cache:clear
 "
 }
 
@@ -306,7 +313,11 @@ replace_migrations() {
 
 run_migrations() {
   log "Running migrations..."
-  sudo -u "$APP_USER" -H bash -lc "cd '$APP_DIR' && php artisan migrate --force"
+  sudo -u "$APP_USER" -H bash -lc "
+    cd '$APP_DIR'
+    php artisan migrate --force
+    php artisan cache:clear
+  "
 }
 
 # -----------------------------

@@ -33,8 +33,16 @@ if ! command -v wp >/dev/null 2>&1; then
   curl -fsSL "${wp_cli_url}" -o "${wp_cli_phar}" || die "Failed to download WP-CLI"
   curl -fsSL "${wp_cli_sha_url}" -o "${wp_cli_sha}" || die "Failed to download WP-CLI checksum"
 
-  (cd "${tmp_dir}" && sha512sum -c "$(basename "${wp_cli_sha}")") \
-    || die "WP-CLI checksum verification failed"
+  checksum_line="$(head -n 1 "${wp_cli_sha}")"
+  if [[ "${checksum_line}" == *" "* ]]; then
+    (cd "${tmp_dir}" && sha512sum -c "$(basename "${wp_cli_sha}")") \
+      || die "WP-CLI checksum verification failed"
+  else
+    expected_checksum="${checksum_line%% *}"
+    actual_checksum="$(sha512sum "${wp_cli_phar}" | awk '{print $1}')"
+    [[ "${expected_checksum}" == "${actual_checksum}" ]] \
+      || die "WP-CLI checksum verification failed"
+  fi
 
   install -m 0755 "${wp_cli_phar}" /usr/local/bin/wp
 fi
