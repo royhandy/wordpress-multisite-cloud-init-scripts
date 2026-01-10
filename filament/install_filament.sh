@@ -146,6 +146,7 @@ create_laravel_app() {
   chown -R "$APP_USER:$APP_GROUP" "$APP_DIR"
   find "$APP_DIR" -type d -exec chmod 0750 {} +
   find "$APP_DIR" -type f -exec chmod 0640 {} +
+  find "$APP_DIR" -type d -exec chmod g+s {} +
   chmod -R g+w "$APP_DIR/storage" "$APP_DIR/bootstrap/cache"
 
   # Never cache config during install
@@ -216,7 +217,7 @@ SQL
 
   sudo -u "$APP_USER" -H bash -lc "cd '$APP_DIR' && php artisan key:generate --force"
 
-
+  sudo -u "$APP_USER" -H bash -lc "cd '$APP_DIR' && php artisan storage:link"
 
   chown "$APP_USER:$APP_GROUP" "$APP_DIR/.env"
   chmod 0640 "$APP_DIR/.env"
