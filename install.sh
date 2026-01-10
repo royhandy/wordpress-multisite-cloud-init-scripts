@@ -270,6 +270,9 @@ EOF
 install_nodejs() {
   local target_major="${NODE_MAJOR:-20}"
   local current_major=""
+  local keyring="/usr/share/keyrings/nodesource.gpg"
+  local list_file="/etc/apt/sources.list.d/nodesource.list"
+  local tmp_key=""
 
   if ! [[ "${target_major}" =~ ^[0-9]+$ ]]; then
     die "NODE_MAJOR must be a numeric major version (got '${target_major}')"
@@ -297,8 +300,17 @@ install_nodejs() {
   fi
 
   log "Installing Node.js ${target_major} from NodeSource"
-  curl -fsSL "https://deb.nodesource.com/setup_${target_major}.x" | bash - \
-    || die "Failed to add NodeSource repo"
+  # Trust decision: use official NodeSource APT repo over HTTPS with a pinned keyring.
+  tmp_key="$(mktemp)"
+  curl -fsSL "https://deb.nodesource.com/gpgkey/nodesource.gpg.key" -o "${tmp_key}" \
+    || die "Failed to download NodeSource GPG key"
+  gpg --dearmor -o "${keyring}" "${tmp_key}" || die "Failed to install NodeSource GPG key"
+  rm -f "${tmp_key}"
+  chmod 0644 "${keyring}"
+
+  cat > "${list_file}" <<EOF
+deb [signed-by=${keyring}] https://deb.nodesource.com/node_${target_major}.x nodistro main
+EOF
 
   apt-get update -y
   apt-get install -y nodejs || die "Failed to install nodejs"

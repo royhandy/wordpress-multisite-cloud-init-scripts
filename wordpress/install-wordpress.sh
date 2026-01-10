@@ -6,6 +6,7 @@ WEB_ROOT="/var/www/wordpress"
 TEMPLATE_DIR="/opt/server-template"
 
 log() { echo "[wp-provision] $*"; }
+die() { echo "[wp-provision] ERROR: $*" >&2; exit 1; }
 
 # Load environment
 # shellcheck disable=SC1091
@@ -17,9 +18,22 @@ cd "${WEB_ROOT}"
 # Install WP-CLI if missing
 if ! command -v wp >/dev/null 2>&1; then
   log "Installing WP-CLI"
-  curl -fsSL https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar -o wp-cli.phar
-  chmod +x wp-cli.phar
-  mv wp-cli.phar /usr/local/bin/wp
+
+  wp_cli_url="https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar"
+  wp_cli_sha_url="https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar.sha512"
+
+  tmp_dir="$(mktemp -d)"
+  trap 'rm -rf "${tmp_dir}"' RETURN
+  wp_cli_phar="${tmp_dir}/wp-cli.phar"
+  wp_cli_sha="${tmp_dir}/wp-cli.phar.sha512"
+
+  curl -fsSL "${wp_cli_url}" -o "${wp_cli_phar}" || die "Failed to download WP-CLI"
+  curl -fsSL "${wp_cli_sha_url}" -o "${wp_cli_sha}" || die "Failed to download WP-CLI checksum"
+
+  (cd "${tmp_dir}" && sha512sum -c "$(basename "${wp_cli_sha}")") \
+    || die "WP-CLI checksum verification failed"
+
+  install -m 0755 "${wp_cli_phar}" /usr/local/bin/wp
 fi
 
 # Download WordPress core if missing

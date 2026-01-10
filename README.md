@@ -43,6 +43,13 @@ The server is intended to act **only as an origin**:
 
 ---
 
+## Supply Chain Notes
+
+- Node.js is installed from the official NodeSource APT repo over HTTPS with its GPG key pinned to a local keyring.
+- WP-CLI downloads are verified against the official published SHA-512 checksum before installation.
+
+---
+
 ## What This Is Not
 
 This project intentionally does **not** include:
