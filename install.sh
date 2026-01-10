@@ -222,7 +222,7 @@ install_web() {
   log "Installing nginx + PHP"
   apt_safe_install \
     nginx \
-    php-fpm php-mysql php-redis php-curl php-gd php-mbstring php-xml php-zip php8.3-intl npm
+    php-fpm php-mysql php-redis php-curl php-gd php-mbstring php-xml php-zip php8.3-intl
 
   install -o root -g root -m 0644 "${TEMPLATE_DIR}/nginx/nginx.conf" /etc/nginx/nginx.conf
   install -o root -g root -m 0644 "${TEMPLATE_DIR}/nginx/catchall.conf" /etc/nginx/sites-available/catchall.conf
@@ -268,26 +268,42 @@ EOF
 # Node.js
 ########################################
 install_nodejs() {
-  if command -v node >/dev/null 2>&1; then
-    NODE_MAJOR="$(node -v | sed 's/^v//' | cut -d. -f1)"
-    if [ "$NODE_MAJOR" -ge 20 ]; then
-      echo "[install] Node.js already installed (v$(node -v))"
-      return 0
-    fi
-    echo "[install] Node.js present but too old, upgrading"
-  else
-    echo "[install] Node.js not found, installing"
+  local target_major="${NODE_MAJOR:-20}"
+  local current_major=""
+
+  if ! [[ "${target_major}" =~ ^[0-9]+$ ]]; then
+    die "NODE_MAJOR must be a numeric major version (got '${target_major}')"
   fi
 
-  curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    || { echo "Failed to add NodeSource repo"; exit 1; }
+  if command -v node >/dev/null 2>&1; then
+    current_major="$(node -v | sed 's/^v//' | cut -d. -f1)"
+  fi
 
-  apt update
-  apt install -y nodejs \
-    || { echo "Failed to install nodejs"; exit 1; }
+  if [[ -n "${current_major}" && "${current_major}" -ge "${target_major}" ]] \
+    && command -v npm >/dev/null 2>&1; then
+    log "Node.js already installed (node $(node -v), npm $(npm -v))"
+    return 0
+  fi
 
-  node -v || exit 1
-  npm -v || exit 1
+  if dpkg -s npm >/dev/null 2>&1; then
+    log "Removing distro npm package to avoid conflicts"
+    apt-get purge -y npm || die "Failed to purge npm"
+  fi
+
+  if [[ -n "${current_major}" && "${current_major}" -lt "${target_major}" ]] \
+    && dpkg -s nodejs >/dev/null 2>&1; then
+    log "Removing old Node.js package (major ${current_major})"
+    apt-get purge -y nodejs || die "Failed to purge nodejs"
+  fi
+
+  log "Installing Node.js ${target_major} from NodeSource"
+  curl -fsSL "https://deb.nodesource.com/setup_${target_major}.x" | bash - \
+    || die "Failed to add NodeSource repo"
+
+  apt-get update -y
+  apt-get install -y nodejs || die "Failed to install nodejs"
+
+  log "Node.js installed (node $(node -v), npm $(npm -v))"
 }
 
 ########################################

@@ -119,6 +119,9 @@ EOF
   env_set_if_missing ADMIN_NAME "Admin User"
   env_set_if_missing ADMIN_EMAIL "root@localhost"
 
+  # Node.js
+  env_set_if_missing NODE_MAJOR "20"
+
   # Filament Server Admin App
   env_set_if_missing FILAMENT_ADMIN_PASSWORD "$(gen_short_secret)"
 
