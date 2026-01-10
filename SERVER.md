@@ -11,6 +11,7 @@ It is designed to be **rebuilt, not repaired**.
 - Single nginx catch-all
 - WordPress multisite
 - Redis via UNIX socket
+- PHP-FPM via UNIX socket (/run/php/server-fpm.sock)
 - Secrets in /etc/server.env only
 - Email-only alerting
 

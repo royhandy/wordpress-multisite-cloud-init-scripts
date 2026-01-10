@@ -201,9 +201,14 @@ install_web() {
     "${TEMPLATE_DIR}/php/php.ini" \
     "/etc/php/${PHP_VERSION}/fpm/conf.d/99-server-template.ini"
   
+  OLD_POOL_CONF="/etc/php/${PHP_VERSION}/fpm/pool.d/zz-server-template.conf"
+  if [[ -f "${OLD_POOL_CONF}" ]]; then
+    rm -f "${OLD_POOL_CONF}"
+  fi
+
   install -o root -g root -m 0644 \
     "${TEMPLATE_DIR}/php/php-fpm-pool.conf" \
-    "/etc/php/${PHP_VERSION}/fpm/pool.d/zz-server-template.conf"
+    "/etc/php/${PHP_VERSION}/fpm/pool.d/server.conf"
 
   ensure_dir /etc/systemd/system/php-fpm.service.d 0755
   cat > /etc/systemd/system/php-fpm.service.d/env.conf <<EOF

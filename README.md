@@ -59,7 +59,7 @@ This project intentionally does **not** include:
 
 ## Architecture Summary
 
-Internet → Cloudflare → nftables → nginx → PHP-FPM → WordPress Multisite → MariaDB + Redis
+Internet -> Cloudflare -> nftables -> nginx -> PHP-FPM (unix:/run/php/server-fpm.sock) -> WordPress Multisite -> MariaDB + Redis
 
 ---
 
