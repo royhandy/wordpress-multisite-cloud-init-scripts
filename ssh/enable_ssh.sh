@@ -12,6 +12,16 @@ log() { echo "[enable-ssh] $*"; }
 die() { echo "[enable-ssh] ERROR: $*" >&2; exit 1; }
 
 [[ $EUID -eq 0 ]] || die "Must be run as root"
+require_systemd
+
+require_systemd() {
+  if ! command -v systemctl >/dev/null 2>&1; then
+    die "systemctl is not available; OpenSSH post-install will fail without systemd. Install systemd or run this on a systemd-based host."
+  fi
+  if [[ ! -d /run/systemd/system ]]; then
+    die "systemd does not appear to be PID 1; OpenSSH post-install will fail. Use a systemd-based host or enable systemd."
+  fi
+}
 
 unit_exists() {
   local unit="$1"
@@ -57,6 +67,7 @@ unmask_unit ssh.socket
 ###############################################################################
 
 if ! command -v sshd >/dev/null 2>&1; then
+  require_systemd
   log "Installing openssh-server"
   apt update
   apt install -y openssh-server
