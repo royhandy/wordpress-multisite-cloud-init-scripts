@@ -64,9 +64,13 @@ case "${wp_subdomain_install,,}" in
   *) subdomain_args=() ;;
 esac
 
+wp_primary_url="${WP_PRIMARY_URL:-https://${WP_PRIMARY_DOMAIN}}"
+if [[ "${wp_primary_url}" != *"://"* ]]; then
+  wp_primary_url="https://${wp_primary_url}"
+fi
 
 wp core multisite-install \
-  --url="$WP_PRIMARY_DOMAIN" \
+  --url="${wp_primary_url}" \
   --title="$WP_PRIMARY_NAME" \
   --admin_user="$WP_ADMIN_USER" \
   --admin_password="$WP_ADMIN_PASSWORD" \

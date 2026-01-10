@@ -186,6 +186,7 @@ Edit:
 Set required values:
 ```
 WP_PRIMARY_DOMAIN=example.com
+WP_PRIMARY_URL=https://example.com
 CERT_DOMAIN=example.com
 MAILGUN_SMTP_LOGIN=postmaster@example.com
 MAILGUN_SMTP_PASSWORD=yourpassword
@@ -194,6 +195,7 @@ ALERT_EMAIL=alerts@example.com
 ```
 
 Notes:
+- `WP_PRIMARY_URL` defaults to `https://${WP_PRIMARY_DOMAIN}` when unset.
 - If `CERT_DOMAIN` is not set, it is derived by stripping the first label from `WP_PRIMARY_DOMAIN` (e.g., `site.example.com` → `example.com`).
 - For multi-part TLDs like `example.co.uk`, set `CERT_DOMAIN` explicitly to avoid incorrect derivation.
 
