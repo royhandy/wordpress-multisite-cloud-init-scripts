@@ -70,8 +70,52 @@ ensure_dir() {
 
 apt_safe_install() {
   export DEBIAN_FRONTEND=noninteractive
+  local ns_list="/etc/apt/sources.list.d/nodesource.list"
+  local ns_list_disabled="/etc/apt/sources.list.d/nodesource.list.disabled"
+  local ns_disabled="0"
+  if [[ -f "${ns_list}" ]]; then
+    log "Temporarily disabling NodeSource repo for base packages"
+    mv "${ns_list}" "${ns_list_disabled}" || die "Failed to disable NodeSource repo"
+    ns_disabled="1"
+  fi
   apt-get update -y
   apt-get install -y "$@"
+  if [[ "${ns_disabled}" == "1" ]]; then
+    mv "${ns_list_disabled}" "${ns_list}" || die "Failed to restore NodeSource repo"
+  fi
+}
+
+nodesource_setup_repo() {
+  local target_major="$1"
+  local keyring="/usr/share/keyrings/nodesource.gpg"
+  local list_file="/etc/apt/sources.list.d/nodesource.list"
+  local list_disabled="/etc/apt/sources.list.d/nodesource.list.disabled"
+  local tmp_key=""
+  local key_installed="0"
+  local key_urls=(
+    "https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key"
+    "https://deb.nodesource.com/gpgkey/nodesource.gpg.key"
+  )
+
+  tmp_key="$(mktemp)"
+  for key_url in "${key_urls[@]}"; do
+    if curl -fsSL "${key_url}" -o "${tmp_key}"; then
+      if gpg --dearmor -o "${keyring}" "${tmp_key}"; then
+        key_installed="1"
+        break
+      fi
+    fi
+  done
+  rm -f "${tmp_key}"
+  if [[ "${key_installed}" != "1" ]]; then
+    die "Failed to install NodeSource GPG key"
+  fi
+  chmod 0644 "${keyring}"
+
+  rm -f "${list_disabled}"
+  cat > "${list_file}" <<EOF
+deb [signed-by=${keyring}] https://deb.nodesource.com/node_${target_major}.x nodistro main
+EOF
 }
 
 derive_cert_domain() {
@@ -354,9 +398,8 @@ EOF
 install_nodejs() {
   local target_major="${NODE_MAJOR:-20}"
   local current_major=""
-  local keyring="/usr/share/keyrings/nodesource.gpg"
   local list_file="/etc/apt/sources.list.d/nodesource.list"
-  local tmp_key=""
+  local list_disabled="/etc/apt/sources.list.d/nodesource.list.disabled"
 
   if ! [[ "${target_major}" =~ ^[0-9]+$ ]]; then
     die "NODE_MAJOR must be a numeric major version (got '${target_major}')"
@@ -368,6 +411,9 @@ install_nodejs() {
 
   if [[ -n "${current_major}" && "${current_major}" -ge "${target_major}" ]] \
     && command -v npm >/dev/null 2>&1; then
+    if [[ -f "${list_file}" || -f "${list_disabled}" ]]; then
+      nodesource_setup_repo "${target_major}"
+    fi
     log "Node.js already installed (node $(node -v), npm $(npm -v))"
     return 0
   fi
@@ -385,16 +431,7 @@ install_nodejs() {
 
   log "Installing Node.js ${target_major} from NodeSource"
   # Trust decision: use official NodeSource APT repo over HTTPS with a pinned keyring.
-  tmp_key="$(mktemp)"
-  curl -fsSL "https://deb.nodesource.com/gpgkey/nodesource.gpg.key" -o "${tmp_key}" \
-    || die "Failed to download NodeSource GPG key"
-  gpg --dearmor -o "${keyring}" "${tmp_key}" || die "Failed to install NodeSource GPG key"
-  rm -f "${tmp_key}"
-  chmod 0644 "${keyring}"
-
-  cat > "${list_file}" <<EOF
-deb [signed-by=${keyring}] https://deb.nodesource.com/node_${target_major}.x nodistro main
-EOF
+  nodesource_setup_repo "${target_major}"
 
   apt-get update -y
   apt-get install -y nodejs || die "Failed to install nodejs"
