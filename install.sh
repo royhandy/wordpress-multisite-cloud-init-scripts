@@ -158,10 +158,86 @@ install_base_packages() {
 ########################################
 # Firewall + Cloudflare
 ########################################
+FIREWALL_BOOTSTRAP_ACTIVE=0
+BOOTSTRAP_ALLOW_COMMENT="bootstrap-allow-https"
+
+firewall_chain_exists() {
+  nft list chain inet filter input >/dev/null 2>&1
+}
+
+cloudflare_sets_exist() {
+  nft list set inet filter cf4 >/dev/null 2>&1 \
+    && nft list set inet filter cf6 >/dev/null 2>&1
+}
+
+cloudflare_sets_empty() {
+  if ! cloudflare_sets_exist; then
+    return 0
+  fi
+
+  local cf4_count cf6_count
+  cf4_count=$(nft list set inet filter cf4 | grep -c '/')
+  cf6_count=$(nft list set inet filter cf6 | grep -c '/')
+
+  [[ "${cf4_count}" -eq 0 && "${cf6_count}" -eq 0 ]]
+}
+
+firewall_bootstrap_rule_present() {
+  nft -a list chain inet filter input 2>/dev/null \
+    | grep -q "${BOOTSTRAP_ALLOW_COMMENT}"
+}
+
+apply_firewall_bootstrap_rules() {
+  if firewall_chain_exists && cloudflare_sets_exist; then
+    if ! firewall_bootstrap_rule_present; then
+      nft add rule inet filter input tcp dport 443 accept comment "${BOOTSTRAP_ALLOW_COMMENT}"
+    fi
+    return
+  fi
+
+  local tmp
+  tmp="$(mktemp)"
+
+  awk -v comment="${BOOTSTRAP_ALLOW_COMMENT}" '
+    $0 ~ /# HTTPS from Cloudflare only/ && !inserted {
+      print "    # Temporary: allow HTTPS from anywhere during Cloudflare bootstrap"
+      print "    tcp dport 443 accept comment \"" comment "\""
+      inserted=1
+    }
+    { print }
+  ' "${TEMPLATE_DIR}/security/nftables.conf" > "${tmp}"
+
+  nft -f "${tmp}"
+  rm -f "${tmp}"
+}
+
+remove_firewall_bootstrap_rule() {
+  local handles
+  mapfile -t handles < <(
+    nft -a list chain inet filter input 2>/dev/null \
+      | awk "/${BOOTSTRAP_ALLOW_COMMENT}/ {print \$NF}"
+  )
+
+  for handle in "${handles[@]}"; do
+    nft delete rule inet filter input handle "${handle}" || true
+  done
+}
+
 install_firewall() {
   log "Configuring firewall"
   install -o root -g root -m 0644 "${TEMPLATE_DIR}/security/nftables.conf" /etc/nftables.conf
-  systemctl enable --now nftables
+
+  if ! firewall_chain_exists || cloudflare_sets_empty; then
+    log "Applying temporary HTTPS allow rule during Cloudflare bootstrap"
+    apply_firewall_bootstrap_rules
+    FIREWALL_BOOTSTRAP_ACTIVE=1
+  fi
+
+  if firewall_bootstrap_rule_present; then
+    FIREWALL_BOOTSTRAP_ACTIVE=1
+  fi
+
+  systemctl enable nftables
 }
 
 install_cloudflare_update() {
@@ -171,7 +247,15 @@ install_cloudflare_update() {
   install -o root -g root -m 0644 "${TEMPLATE_DIR}/security/systemd/cloudflare-update.timer" /etc/systemd/system/cloudflare-update.timer
   systemctl daemon-reload
   systemctl enable --now cloudflare-update.timer
-  /usr/local/sbin/cloudflare-update || true
+
+  if /usr/local/sbin/cloudflare-update; then
+    if [[ "${FIREWALL_BOOTSTRAP_ACTIVE}" -eq 1 ]]; then
+      log "Removing temporary HTTPS allow rule after Cloudflare bootstrap"
+      remove_firewall_bootstrap_rule
+    fi
+  else
+    log "Cloudflare update failed; leaving temporary HTTPS allow rule in place"
+  fi
 }
 
 ########################################
