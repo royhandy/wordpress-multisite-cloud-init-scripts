@@ -86,7 +86,7 @@ ensure_app_user() {
   fi
 
   # Ensure user exists
-  if ! id "$APP_USER" >/dev/null 2>&1; then
+  if ! id -u "$APP_USER" >/dev/null 2>&1; then
     log "Creating user: $APP_USER"
     useradd \
       --system \
@@ -279,6 +279,11 @@ SQL
 # Filament v4
 # -----------------------------
 install_filament() {
+  if [[ -f "$APP_DIR/app/Providers/Filament/AdminPanelProvider.php" ]]; then
+    log "Filament already installed"
+    return
+  fi
+
   log "Installing Filament v4..."
 
   sudo -u "$APP_USER" -H bash -lc "

@@ -69,15 +69,23 @@ if [[ "${wp_primary_url}" != *"://"* ]]; then
   wp_primary_url="https://${wp_primary_url}"
 fi
 
-wp core multisite-install \
-  --url="${wp_primary_url}" \
-  --title="$WP_PRIMARY_NAME" \
-  --admin_user="$WP_ADMIN_USER" \
-  --admin_password="$WP_ADMIN_PASSWORD" \
-  --admin_email="$ADMIN_EMAIL" \
-  "${subdomain_args[@]}" \
-  --skip-email \
-  --allow-root
+if wp core is-installed --allow-root; then
+  if wp core is-installed --allow-root --network; then
+    log "WordPress multisite already installed; skipping install"
+  else
+    log "WordPress already installed (non-multisite); skipping multisite install"
+  fi
+else
+  wp core multisite-install \
+    --url="${wp_primary_url}" \
+    --title="$WP_PRIMARY_NAME" \
+    --admin_user="$WP_ADMIN_USER" \
+    --admin_password="$WP_ADMIN_PASSWORD" \
+    --admin_email="$ADMIN_EMAIL" \
+    "${subdomain_args[@]}" \
+    --skip-email \
+    --allow-root
+fi
 
 # Ensure ownership & permissions
 chown -R www-data:www-data "${WEB_ROOT}"
