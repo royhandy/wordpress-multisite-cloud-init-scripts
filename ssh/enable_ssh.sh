@@ -13,10 +13,10 @@ die() { echo "[enable-ssh] ERROR: $*" >&2; exit 1; }
 
 require_systemd() {
   if ! command -v systemctl >/dev/null 2>&1; then
-    die "systemctl is not available; OpenSSH post-install will fail without systemd. Install systemd or run this on a systemd-based host."
+    die "systemctl is not available; OpenSSH post-install will fail without systemd."
   fi
   if [[ ! -d /run/systemd/system ]]; then
-    die "systemd does not appear to be PID 1; OpenSSH post-install will fail. Use a systemd-based host or enable systemd."
+    die "systemd does not appear to be PID 1; OpenSSH post-install will fail."
   fi
 }
 
@@ -40,6 +40,7 @@ unmask_unit() {
 enable_and_start_service() {
   local unit="$1"
   if unit_exists "${unit}"; then
+    systemctl unmask "${unit}" 2>/dev/null || true
     systemctl enable "${unit}" 2>/dev/null || true
     systemctl restart "${unit}" 2>/dev/null || true
   fi
@@ -48,13 +49,14 @@ enable_and_start_service() {
 enable_and_start_socket() {
   local unit="$1"
   if unit_exists "${unit}"; then
+    systemctl unmask "${unit}" 2>/dev/null || true
     systemctl enable "${unit}" 2>/dev/null || true
     systemctl start "${unit}" 2>/dev/null || true
   fi
 }
 
 ###############################################################################
-# Unmask SSH early (CRITICAL)
+# Unmask SSH early
 ###############################################################################
 
 log "Unmasking SSH units (pre-install)"
@@ -63,33 +65,26 @@ unmask_unit sshd.service
 unmask_unit ssh.socket
 
 ###############################################################################
-# Install OpenSSH if missing
+# Install OpenSSH (Ubuntu 24.04 Compatibility Fix)
 ###############################################################################
 
 if ! command -v sshd >/dev/null 2>&1; then
-  require_systemd
   log "Installing openssh-server"
+  
+  # Prevent 'deb-systemd-invoke' errors during install by blocking service start
+  printf '#!/bin/sh\nexit 101' > /usr/sbin/policy-rc.d
+  chmod +x /usr/sbin/policy-rc.d
+  
   apt update
   apt install -y openssh-server
+  
+  rm -f /usr/sbin/policy-rc.d
 fi
-
-###############################################################################
-# Fix dpkg state if needed
-###############################################################################
 
 dpkg --configure -a || true
 
 ###############################################################################
-# Unmask SSH after install (handles previously masked units)
-###############################################################################
-
-log "Unmasking SSH units (post-install)"
-unmask_unit ssh.service
-unmask_unit sshd.service
-unmask_unit ssh.socket
-
-###############################################################################
-# SSH configuration (drop-in, Match Address)
+# SSH configuration
 ###############################################################################
 
 SSHD_CONFIG="/etc/ssh/sshd_config"
@@ -98,7 +93,6 @@ SSHD_DROPIN_FILE="${SSHD_DROPIN_DIR}/90-enable-ssh.conf"
 
 ensure_sshd_dropin() {
   install -d -o root -g root -m 0755 "${SSHD_DROPIN_DIR}"
-
   if ! grep -Eq '^\s*Include\s+/etc/ssh/sshd_config\.d/\*\.conf' "${SSHD_CONFIG}"; then
     echo "Include /etc/ssh/sshd_config.d/*.conf" >> "${SSHD_CONFIG}"
   fi
@@ -112,100 +106,56 @@ Match Address ${OFFICE_IP}
   PasswordAuthentication yes
   PermitRootLogin yes
 EOF
-
   chmod 0644 "${SSHD_DROPIN_FILE}"
 }
 
-###############################################################################
-# Enable + start SSH
-###############################################################################
-
-log "Configuring sshd drop-in for root/password access from ${OFFICE_IP} only"
+log "Configuring sshd drop-in for ${OFFICE_IP}"
 ensure_sshd_dropin
+
+# Fix for "Missing privilege separation directory"
+if [[ ! -d /run/sshd ]]; then
+    mkdir -p /run/sshd
+    chmod 0755 /run/sshd
+fi
 
 if command -v sshd >/dev/null 2>&1; then
   sshd -t || die "sshd_config validation failed"
 fi
 
-log "Starting SSH service"
-enable_and_start_service ssh.service
-enable_and_start_service sshd.service
+log "Starting SSH service and socket"
 enable_and_start_socket ssh.socket
+enable_and_start_service ssh.service
 
 ###############################################################################
-# Firewall: allow SSH from office IP only
+# Firewall (nftables)
 ###############################################################################
 
-NFT_INCLUDE_DIR="/etc/nftables.d"
-NFT_INCLUDE_FILE="${NFT_INCLUDE_DIR}/ssh-allow.nft"
 NFT_CONF="/etc/nftables.conf"
-NFT_MARKER_BEGIN="# BEGIN enable_ssh managed"
-NFT_MARKER_END="# END enable_ssh managed"
-
-ensure_nftables_include() {
-  install -d -o root -g root -m 0755 "${NFT_INCLUDE_DIR}"
-
-  if [[ -f "${NFT_CONF}" ]] && grep -Fq "${NFT_MARKER_BEGIN}" "${NFT_CONF}"; then
-    local tmp
-    tmp="$(mktemp)"
-    awk -v begin="${NFT_MARKER_BEGIN}" -v end="${NFT_MARKER_END}" '
-      $0 == begin {print begin; print "include \"/etc/nftables.d/ssh-allow.nft\""; skip=1; next}
-      $0 == end {skip=0; print end; next}
-      !skip {print}
-    ' "${NFT_CONF}" > "${tmp}"
-    mv "${tmp}" "${NFT_CONF}"
-  elif [[ -f "${NFT_CONF}" ]] && grep -Fq 'include "/etc/nftables.d/ssh-allow.nft"' "${NFT_CONF}"; then
-    return 0
-  else
-    cat >> "${NFT_CONF}" <<EOF
-
-${NFT_MARKER_BEGIN}
-include "/etc/nftables.d/ssh-allow.nft"
-${NFT_MARKER_END}
-EOF
-  fi
-}
-
-write_nftables_allowlist() {
-  local family="ip"
-  if [[ "${OFFICE_IP}" == *:* ]]; then
-    family="ip6"
-  fi
-
-  cat > "${NFT_INCLUDE_FILE}" <<EOF
-# Managed by enable_ssh.sh
-add rule inet filter input ${family} saddr ${OFFICE_IP} tcp dport 22 accept
-EOF
-  chmod 0644 "${NFT_INCLUDE_FILE}"
-}
+NFT_INCLUDE_FILE="/etc/nftables.d/ssh-allow.nft"
 
 reload_nftables() {
-  if systemctl list-unit-files --no-legend 2>/dev/null | awk '{print $1}' | grep -Fxq nftables.service; then
+  if systemctl list-unit-files --no-legend | grep -Fxq nftables.service; then
+    log "Ensuring nftables is active"
+    systemctl enable nftables >/dev/null 2>&1
+    systemctl start nftables >/dev/null 2>&1
     systemctl reload nftables || systemctl restart nftables
   elif command -v nft >/dev/null 2>&1; then
     nft -f "${NFT_CONF}"
-  else
-    die "nft command not available; cannot apply SSH firewall rule"
   fi
 }
 
-log "Allowing SSH from ${OFFICE_IP} via nftables (persistent include)"
-ensure_nftables_include
-write_nftables_allowlist
+log "Allowing SSH from ${OFFICE_IP} via nftables"
+mkdir -p /etc/nftables.d
+cat > "${NFT_INCLUDE_FILE}" <<EOF
+add rule inet filter input ip saddr ${OFFICE_IP} tcp dport 22 accept
+EOF
+
+# Ensure include exists in main conf
+if [[ -f "${NFT_CONF}" ]] && ! grep -q "ssh-allow.nft" "${NFT_CONF}"; then
+    echo 'include "/etc/nftables.d/ssh-allow.nft"' >> "${NFT_CONF}"
+fi
+
 reload_nftables
 
-###############################################################################
-# Done
-###############################################################################
-
-log "SSH ENABLED (TEMPORARY)"
-echo
-echo "You may now SSH using:"
-echo "  ssh root@<server-ip>"
-echo
-echo "IMPORTANT: When finished, lock SSH back down:"
-echo "  systemctl stop ssh"
-echo "  systemctl disable ssh"
-echo "  systemctl mask ssh sshd ssh.socket"
-echo "  apt purge -y openssh-server openssh-sftp-server"
-echo
+log "SSH ENABLED"
+echo "You may now login: ssh root@<server-ip>"
