@@ -1,35 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-mkdir -p /var/lib/server-template/cloudflare
-chmod 0700 /var/lib/server-template/cloudflare
-chown root:root /var/lib/server-template/cloudflare
-
-# Ensure base state directory exists
-install -d -o root -g root -m 0700 /var/lib/server-template \
-  || die "Cannot create /var/lib/server-template"
-
-install -d -o root -g root -m 0700 "${STATE_DIR}" \
-  || die "Cannot create state dir: ${STATE_DIR}"
-
-# Write test
-touch "${STATE_DIR}/.writetest" \
-  || die "State dir not writable: ${STATE_DIR}"
-rm -f "${STATE_DIR}/.writetest"
-
-###############################################################################
-# Cloudflare IP updater for nftables + nginx
-#
-# - Always fetches fresh IPv4 + IPv6 ranges
-# - Always flushes + repopulates nftables sets
-# - Regenerates nginx real_ip config
-# - Fails HARD if sets end up empty
-###############################################################################
-
-LOCK_FILE="/var/lock/cloudflare-update.lock"
-exec 9>"${LOCK_FILE}"
-flock -n 9 || exit 0
-
 ###############################################################################
 # Paths / config
 ###############################################################################
@@ -44,6 +15,8 @@ REALIP_CONF="/etc/nginx/conf.d/cloudflare-realip.conf"
 
 CF_V4_URL="https://www.cloudflare.com/ips-v4"
 CF_V6_URL="https://www.cloudflare.com/ips-v6"
+
+LOCK_FILE="/var/lock/cloudflare-update.lock"
 
 ###############################################################################
 # Helpers
@@ -63,6 +36,18 @@ require_cmd() {
 }
 
 ###############################################################################
+# Cloudflare IP updater for nftables + nginx
+#
+# - Always fetches fresh IPv4 + IPv6 ranges
+# - Always flushes + repopulates nftables sets
+# - Regenerates nginx real_ip config
+# - Fails HARD if sets end up empty
+###############################################################################
+
+exec 9>"${LOCK_FILE}"
+flock -n 9 || exit 0
+
+###############################################################################
 # Preconditions
 ###############################################################################
 
@@ -78,8 +63,17 @@ if [[ -f "${ENV_FILE}" ]]; then
   source "${ENV_FILE}"
 fi
 
-# Ensure state dir exists
-install -d -o root -g root -m 0700 "${STATE_DIR}"
+# Ensure base state directory exists
+install -d -o root -g root -m 0700 /var/lib/server-template \
+  || die "Cannot create /var/lib/server-template"
+
+install -d -o root -g root -m 0700 "${STATE_DIR}" \
+  || die "Cannot create state dir: ${STATE_DIR}"
+
+# Write test
+touch "${STATE_DIR}/.writetest" \
+  || die "State dir not writable: ${STATE_DIR}"
+rm -f "${STATE_DIR}/.writetest"
 
 ###############################################################################
 # Fetch Cloudflare IP lists
