@@ -13,12 +13,44 @@ die() { echo "[enable-ssh] ERROR: $*" >&2; exit 1; }
 
 [[ $EUID -eq 0 ]] || die "Must be run as root"
 
+unit_exists() {
+  local unit="$1"
+  systemctl list-unit-files --all --no-legend --type=service --type=socket 2>/dev/null \
+    | awk '{print $1}' \
+    | grep -Fxq "${unit}"
+}
+
+unmask_unit() {
+  local unit="$1"
+  if unit_exists "${unit}"; then
+    systemctl unmask "${unit}" 2>/dev/null || true
+  fi
+}
+
+enable_and_start_service() {
+  local unit="$1"
+  if unit_exists "${unit}"; then
+    systemctl enable "${unit}" 2>/dev/null || true
+    systemctl restart "${unit}" 2>/dev/null || true
+  fi
+}
+
+enable_and_start_socket() {
+  local unit="$1"
+  if unit_exists "${unit}"; then
+    systemctl enable "${unit}" 2>/dev/null || true
+    systemctl start "${unit}" 2>/dev/null || true
+  fi
+}
+
 ###############################################################################
 # Unmask SSH early (CRITICAL)
 ###############################################################################
 
 log "Unmasking SSH units (pre-install)"
-systemctl unmask ssh ssh.socket 2>/dev/null || true
+unmask_unit ssh.service
+unmask_unit sshd.service
+unmask_unit ssh.socket
 
 ###############################################################################
 # Install OpenSSH if missing
@@ -35,6 +67,15 @@ fi
 ###############################################################################
 
 dpkg --configure -a || true
+
+###############################################################################
+# Unmask SSH after install (handles previously masked units)
+###############################################################################
+
+log "Unmasking SSH units (post-install)"
+unmask_unit ssh.service
+unmask_unit sshd.service
+unmask_unit ssh.socket
 
 ###############################################################################
 # Configure sshd_config (EXPLICIT)
@@ -63,8 +104,9 @@ fi
 ###############################################################################
 
 log "Starting SSH service"
-systemctl enable ssh
-systemctl restart ssh
+enable_and_start_service ssh.service
+enable_and_start_service sshd.service
+enable_and_start_socket ssh.socket
 
 ###############################################################################
 # Firewall: allow SSH from office IP only
@@ -85,6 +127,6 @@ echo
 echo "IMPORTANT: When finished, lock SSH back down:"
 echo "  systemctl stop ssh"
 echo "  systemctl disable ssh"
-echo "  systemctl mask ssh ssh.socket"
+echo "  systemctl mask ssh sshd ssh.socket"
 echo "  apt purge -y openssh-server openssh-sftp-server"
 echo
