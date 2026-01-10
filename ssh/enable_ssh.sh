@@ -63,14 +63,22 @@ unmask_unit sshd.service
 unmask_unit ssh.socket
 
 ###############################################################################
-# Install OpenSSH if missing
+# Install OpenSSH if missing (Enhanced for Ubuntu 24.04)
 ###############################################################################
 
 if ! command -v sshd >/dev/null 2>&1; then
   require_systemd
   log "Installing openssh-server"
+  
+  # Prevent services from starting during installation to avoid systemctl errors
+  printf '#!/bin/sh\nexit 101' > /usr/sbin/policy-rc.d
+  chmod +x /usr/sbin/policy-rc.d
+  
   apt update
   apt install -y openssh-server
+  
+  # Remove the block so services can be started manually later in the script
+  rm -f /usr/sbin/policy-rc.d
 fi
 
 ###############################################################################
