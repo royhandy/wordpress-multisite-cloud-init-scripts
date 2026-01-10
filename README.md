@@ -93,8 +93,8 @@ Before deploying, you **must** have:
 Install **before provisioning**:
 
 ```
-/etc/ssl/cf-origin.pem
-/etc/ssl/cf-origin.key
+/etc/ssl/cf-origin/<cert-domain>/cert.pem
+/etc/ssl/cf-origin/<cert-domain>/key.pem
 ```
 
 ### VPS With Console Access
@@ -157,8 +157,8 @@ final_message: |
 
   Manual next steps:
     1. Upload Cloudflare origin certs to:
-       /etc/ssl/cf-origin/<domain>/cert.pem
-       /etc/ssl/cf-origin/<domain>/key.pem
+       /etc/ssl/cf-origin/<cert-domain>/cert.pem
+       /etc/ssl/cf-origin/<cert-domain>/key.pem
     2. Edit /etc/server.env
     3. Run:
        cd /opt/server-template && ./install.sh
@@ -179,11 +179,16 @@ Edit:
 Set required values:
 ```
 WP_PRIMARY_DOMAIN=example.com
+CERT_DOMAIN=example.com
 MAILGUN_SMTP_LOGIN=postmaster@example.com
 MAILGUN_SMTP_PASSWORD=yourpassword
 MAIL_FROM=server@example.com
 ALERT_EMAIL=alerts@example.com
 ```
+
+Notes:
+- If `CERT_DOMAIN` is not set, it is derived by stripping the first label from `WP_PRIMARY_DOMAIN` (e.g., `site.example.com` → `example.com`).
+- For multi-part TLDs like `example.co.uk`, set `CERT_DOMAIN` explicitly to avoid incorrect derivation.
 
 ---
 

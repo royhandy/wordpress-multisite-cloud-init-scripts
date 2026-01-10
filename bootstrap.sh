@@ -133,6 +133,7 @@ EOF
 
   # WordPress core
   env_set_if_missing WP_PRIMARY_DOMAIN "example.invalid"
+  env_set_if_missing CERT_DOMAIN ""
   env_set_if_missing WP_PRIMARY_NAME "Wordpress Network"
   env_set_if_missing WP_ADMIN_USER "admin"
   env_set_if_missing WP_ADMIN_PASSWORD "$(gen_short_secret2)"
@@ -220,7 +221,7 @@ main() {
 
   log "Bootstrap complete"
   log "Next steps:"
-  log "  1. Upload Cloudflare Origin certs to ${CERT_BASE}/<domain>/"
+  log "  1. Upload Cloudflare Origin certs to ${CERT_BASE}/<cert-domain>/"
   log "  2. Edit /etc/server.env (domain + mail credentials)"
   log "  3. Run: /opt/server-template/install.sh"
   log "  ---"

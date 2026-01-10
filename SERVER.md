@@ -23,9 +23,13 @@ It is designed to be **rebuilt, not repaired**.
 ## Certificate Management
 - Cloudflare Origin CA cert
 - Located at:
-  - /etc/ssl/cf-origin.pem
-  - /etc/ssl/cf-origin.key
+  - /etc/ssl/cf-origin/<cert-domain>/cert.pem
+  - /etc/ssl/cf-origin/<cert-domain>/key.pem
 - Rotation is manual and documented
+
+Notes:
+- `CERT_DOMAIN` may be set in `/etc/server.env` to override auto-derivation.
+- If `CERT_DOMAIN` is not set, it is derived by stripping the first label from `WP_PRIMARY_DOMAIN`.
 
 ## Alerts
 Email alerts are sent for:

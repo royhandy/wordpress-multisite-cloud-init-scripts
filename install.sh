@@ -74,6 +74,50 @@ apt_safe_install() {
   apt-get install -y "$@"
 }
 
+derive_cert_domain() {
+  local domain="$1"
+  local -a labels
+
+  if [[ -z "${domain}" ]]; then
+    echo ""
+    return 0
+  fi
+
+  if [[ "${domain}" != *.* ]]; then
+    echo "${domain}"
+    return 0
+  fi
+
+  IFS='.' read -r -a labels <<<"${domain}"
+
+  if (( ${#labels[@]} <= 2 )); then
+    echo "${domain}"
+    return 0
+  fi
+
+  if (( ${#labels[@]} == 3 )); then
+    local second="${labels[1]}"
+    local last="${labels[2]}"
+    if (( ${#last} == 2 && ${#second} <= 3 )); then
+      echo "${domain}"
+      return 0
+    fi
+  fi
+
+  echo "${domain#*.}"
+}
+
+resolve_cert_domain() {
+  if [[ -n "${CERT_DOMAIN:-}" ]]; then
+    return 0
+  fi
+
+  CERT_DOMAIN="$(derive_cert_domain "${WP_PRIMARY_DOMAIN}")"
+  if [[ -z "${CERT_DOMAIN}" ]]; then
+    die "CERT_DOMAIN is empty and could not be derived from WP_PRIMARY_DOMAIN"
+  fi
+}
+
 ########################################
 # Certificate validation
 ########################################
@@ -83,16 +127,16 @@ cert_for_domain_exists() {
 }
 
 validate_primary_cert() {
-  if ! cert_for_domain_exists "${WP_PRIMARY_DOMAIN}"; then
+  if ! cert_for_domain_exists "${CERT_DOMAIN}"; then
     cat <<EOF
 ========================================================================
 Missing Cloudflare Origin Certificate for primary domain
 
 Expected:
-  ${CERT_BASE}/${WP_PRIMARY_DOMAIN}/cert.pem
-  ${CERT_BASE}/${WP_PRIMARY_DOMAIN}/key.pem
+  ${CERT_BASE}/${CERT_DOMAIN}/cert.pem
+  ${CERT_BASE}/${CERT_DOMAIN}/key.pem
 
-Install the exact-hostname origin certificate, then re-run:
+Install the base-domain origin certificate (or set CERT_DOMAIN), then re-run:
   ./install.sh
 ========================================================================
 EOF
@@ -302,6 +346,7 @@ install_server_admin_nginx() {
 
     # Required variables
     : "${WP_PRIMARY_DOMAIN:?WP_PRIMARY_DOMAIN is not set}"
+    : "${CERT_DOMAIN:?CERT_DOMAIN is not set}"
 
     NGINX_AVAILABLE="/etc/nginx/sites-available"
     NGINX_ENABLED="/etc/nginx/sites-enabled"
@@ -310,8 +355,8 @@ install_server_admin_nginx() {
     ADMIN_CONF="server-admin.conf"
     CATCHALL_CONF="catchall.conf"
 
-    CERT_PATH="/etc/ssl/cf-origin/${WP_PRIMARY_DOMAIN}/cert.pem"
-    KEY_PATH="/etc/ssl/cf-origin/${WP_PRIMARY_DOMAIN}/key.pem"
+    CERT_PATH="/etc/ssl/cf-origin/${CERT_DOMAIN}/cert.pem"
+    KEY_PATH="/etc/ssl/cf-origin/${CERT_DOMAIN}/key.pem"
 
     # -----------------------------
     # Copy server-admin.conf
@@ -429,6 +474,7 @@ main() {
   refuse_cloud_init
   require_bootstrap
   require_env
+  resolve_cert_domain
   disable_ufw_if_present
   validate_primary_cert
 
