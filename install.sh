@@ -198,6 +198,32 @@ EOF
 }
 
 ########################################
+# Node.js
+########################################
+install_nodejs() {
+  if command -v node >/dev/null 2>&1; then
+    NODE_MAJOR="$(node -v | sed 's/^v//' | cut -d. -f1)"
+    if [ "$NODE_MAJOR" -ge 20 ]; then
+      echo "[install] Node.js already installed (v$(node -v))"
+      return 0
+    fi
+    echo "[install] Node.js present but too old, upgrading"
+  else
+    echo "[install] Node.js not found, installing"
+  fi
+
+  curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    || { echo "Failed to add NodeSource repo"; exit 1; }
+
+  apt update
+  apt install -y nodejs \
+    || { echo "Failed to install nodejs"; exit 1; }
+
+  node -v || exit 1
+  npm -v || exit 1
+}
+
+########################################
 # WordPress
 ########################################
 install_wordpress() {
@@ -381,6 +407,7 @@ main() {
   install_db
   install_redis
   install_web
+  install_nodejs
   install_wordpress
   install_filament
   install_server_admin_nginx
