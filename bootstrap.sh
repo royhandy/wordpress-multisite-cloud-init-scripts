@@ -38,9 +38,32 @@ gen_short_secret2() {
   tr -dc 'A-Za-z0-9' </dev/urandom | head -c 10
 }
 
+env_quote() {
+  local value="$1"
+  value="${value//$'\r'/}"
+  value="${value//$'\n'/}"
+  value="${value//\'/\'\"\'\"\'}"
+  printf "'%s'" "${value}"
+}
+
+sed_escape_replacement() {
+  printf '%s' "$1" | sed -e 's/[\\&|]/\\&/g'
+}
+
 env_set_if_missing() {
   local key="$1" value="$2"
-  grep -qE "^${key}=" "${ENV_FILE}" 2>/dev/null || echo "${key}=${value}" >> "${ENV_FILE}"
+  local quoted replacement escaped
+  quoted="$(env_quote "${value}")"
+  replacement="${key}=${quoted}"
+  escaped="$(sed_escape_replacement "${replacement}")"
+
+  if grep -qE "^${key}=" "${ENV_FILE}" 2>/dev/null; then
+    return 0
+  elif grep -qE "^#\s*${key}=" "${ENV_FILE}" 2>/dev/null; then
+    sed -i "s|^#\s*${key}=.*|${escaped}|" "${ENV_FILE}"
+  else
+    echo "${replacement}" >> "${ENV_FILE}"
+  fi
 }
 
 ########################################

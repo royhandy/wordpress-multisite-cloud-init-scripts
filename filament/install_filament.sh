@@ -27,6 +27,34 @@ require_root() {
   [[ "${EUID:-$(id -u)}" -eq 0 ]] || die "Run as root"
 }
 
+env_quote() {
+  local value="$1"
+  value="${value//$'\r'/}"
+  value="${value//$'\n'/}"
+  value="${value//\'/\'\"\'\"\'}"
+  printf "'%s'" "${value}"
+}
+
+sed_escape_replacement() {
+  printf '%s' "$1" | sed -e 's/[\\&|]/\\&/g'
+}
+
+env_set_if_missing() {
+  local key="$1" value="$2" file="$3"
+  local quoted replacement escaped
+  quoted="$(env_quote "${value}")"
+  replacement="${key}=${quoted}"
+  escaped="$(sed_escape_replacement "${replacement}")"
+
+  if grep -qE "^${key}=" "$file"; then
+    return 0
+  elif grep -qE "^#\s*${key}=" "$file"; then
+    sed -i "s|^#\s*${key}=.*|${escaped}|" "$file"
+  else
+    echo "${replacement}" >> "$file"
+  fi
+}
+
 set_env_var() {
   local key="$1"
   local value="$2"
@@ -69,20 +97,37 @@ ensure_app_user() {
       "$APP_USER"
   fi
 
-  # Ensure password exists in ENV_FILE
-  if ! grep -q '^APP_USER_PASSWORD=' "$ENV_FILE"; then
+  local need_user need_password
+  need_user=0
+  need_password=0
+
+  if ! grep -qE "^(#\s*)?APP_USER=" "$ENV_FILE"; then
+    need_user=1
+  fi
+
+  if ! grep -qE "^(#\s*)?APP_USER_PASSWORD=" "$ENV_FILE"; then
+    need_password=1
+  fi
+
+  if [[ "${need_user}" -eq 1 || "${need_password}" -eq 1 ]]; then
+    if ! grep -qE "^# Server admin application user" "$ENV_FILE"; then
+      printf "\n# Server admin application user\n" >> "$ENV_FILE"
+    fi
+  fi
+
+  if [[ "${need_user}" -eq 1 ]]; then
+    env_set_if_missing "APP_USER" "${APP_USER}" "$ENV_FILE"
+  fi
+
+  if [[ "${need_password}" -eq 1 ]]; then
     log "Generating APP_USER_PASSWORD"
 
     local password
     password="$(openssl rand -base64 32)"
+    env_set_if_missing "APP_USER_PASSWORD" "${password}" "$ENV_FILE"
+  fi
 
-    {
-      echo
-      echo "# Server admin application user"
-      echo "APP_USER=${APP_USER}"
-      echo "APP_USER_PASSWORD=${password}"
-    } >> "$ENV_FILE"
-
+  if [[ "${need_user}" -eq 1 || "${need_password}" -eq 1 ]]; then
     chmod 0600 "$ENV_FILE"
     chown root:root "$ENV_FILE"
   fi
