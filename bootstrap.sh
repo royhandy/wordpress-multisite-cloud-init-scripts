@@ -4,6 +4,14 @@ set -Eeuo pipefail
 ########################################
 # Globals
 ########################################
+SOURCE="${BASH_SOURCE[0]}"
+while [[ -L "${SOURCE}" ]]; do
+  SOURCE_DIR="$(cd -P "$(dirname "${SOURCE}")" >/dev/null 2>&1 && pwd)"
+  SOURCE="$(readlink "${SOURCE}")"
+  [[ "${SOURCE}" != /* ]] && SOURCE="${SOURCE_DIR}/${SOURCE}"
+done
+TEMPLATE_DIR="$(cd -P "$(dirname "${SOURCE}")" >/dev/null 2>&1 && pwd)"
+
 ENV_FILE="/etc/server.env"
 STATE_DIR="/var/lib/server-template"
 CERT_BASE="/etc/ssl/cf-origin"
@@ -183,6 +191,7 @@ install_enable_ssh() {
   install -o root -g root -m 0755 \
     "${TEMPLATE_DIR}/ssh/enable_ssh.sh" \
     /usr/local/sbin/enable_ssh
+  log "Installed enable_ssh to /usr/local/sbin/enable_ssh"
 }
 
 ########################################
@@ -201,6 +210,7 @@ main() {
   prepare_state_dir
   ensure_env_file
   prepare_cert_directories
+  install_enable_ssh
 
   disable_ssh
   disable_cloud_init
