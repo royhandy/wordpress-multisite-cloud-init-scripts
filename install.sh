@@ -160,7 +160,7 @@ install_web() {
   log "Installing nginx + PHP"
   apt_safe_install \
     nginx \
-    php-fpm php-mysql php-redis php-curl php-gd php-mbstring php-xml php-zip php8.3-intl
+    php-fpm php-mysql php-redis php-curl php-gd php-mbstring php-xml php-zip php8.3-intl npm
 
   install -o root -g root -m 0644 "${TEMPLATE_DIR}/nginx/nginx.conf" /etc/nginx/nginx.conf
   install -o root -g root -m 0644 "${TEMPLATE_DIR}/nginx/catchall.conf" /etc/nginx/sites-available/catchall.conf
