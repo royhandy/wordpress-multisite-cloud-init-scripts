@@ -1,8 +1,20 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# shellcheck disable=SC1091
-source /etc/server.env
+if [[ -f /etc/server.env ]]; then
+  # shellcheck disable=SC1091
+  source /etc/server.env
+else
+  exit 0
+fi
+
+: "${ALERT_EMAIL:=}"
+: "${DISK_WARN_PCT:=}"
+: "${DISK_CRIT_PCT:=}"
+
+if [[ -z "${ALERT_EMAIL}" || -z "${DISK_WARN_PCT}" || -z "${DISK_CRIT_PCT}" ]]; then
+  exit 0
+fi
 
 usage="$(df -P / | awk 'NR==2{gsub("%","",$5);print $5}')"
 

@@ -1,11 +1,22 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# shellcheck disable=SC1091
-source /etc/server.env
+if [[ -f /etc/server.env ]]; then
+  # shellcheck disable=SC1091
+  source /etc/server.env
+else
+  cat >/dev/null
+  exit 0
+fi
+
+: "${MAILGUN_SMTP_LOGIN:=}"
+: "${MAILGUN_SMTP_PASSWORD:=}"
+: "${MAILGUN_SMTP_HOST:=}"
+: "${MAILGUN_SMTP_PORT:=}"
+: "${MAIL_FROM:=}"
 
 # Drop mail silently if not configured
-if [[ -z "${MAILGUN_SMTP_LOGIN}" || -z "${MAILGUN_SMTP_PASSWORD}" ]]; then
+if [[ -z "${MAILGUN_SMTP_LOGIN}" || -z "${MAILGUN_SMTP_PASSWORD}" || -z "${MAILGUN_SMTP_HOST}" || -z "${MAILGUN_SMTP_PORT}" || -z "${MAIL_FROM}" ]]; then
   cat >/dev/null
   exit 0
 fi

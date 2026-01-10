@@ -390,8 +390,18 @@ install_server_admin_nginx() {
 install_alerts() {
   log "Installing alert scripts"
   install -o root -g root -m 0755 "${TEMPLATE_DIR}/alerts/sendmail-wrapper.sh" /usr/sbin/sendmail
+  install -o root -g root -m 0750 "${TEMPLATE_DIR}/alerts/send-email.sh" /usr/local/sbin/send-email
   install -o root -g root -m 0750 "${TEMPLATE_DIR}/alerts/disk-check.sh" /usr/local/sbin/disk-check
   install -o root -g root -m 0750 "${TEMPLATE_DIR}/alerts/reboot-check.sh" /usr/local/sbin/reboot-check
+
+  install -o root -g root -m 0644 "${TEMPLATE_DIR}/security/systemd/disk-check.service" /etc/systemd/system/disk-check.service
+  install -o root -g root -m 0644 "${TEMPLATE_DIR}/security/systemd/disk-check.timer" /etc/systemd/system/disk-check.timer
+  install -o root -g root -m 0644 "${TEMPLATE_DIR}/security/systemd/reboot-check.service" /etc/systemd/system/reboot-check.service
+  install -o root -g root -m 0644 "${TEMPLATE_DIR}/security/systemd/reboot-check.timer" /etc/systemd/system/reboot-check.timer
+
+  systemctl daemon-reload
+  systemctl enable --now disk-check.timer
+  systemctl enable --now reboot-check.timer
 }
 
 install_motd() {
